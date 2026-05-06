@@ -23,20 +23,25 @@ The README references Caddy and Let's Encrypt — that path was abandoned. Produ
 - **nginx vhost source:** `focus/deploy/focus.baltito.com.nginx` is checked into the repo. Deployed at `/etc/nginx/sites-available/focus.baltito.com`. nginx on chemex is 1.22.1 — use `listen 443 ssl http2;` syntax, not the standalone `http2 on;` directive.
 - **Compose stack** (`focus/docker-compose.yml`): just `backend` and `frontend`, no proxy. They share an `internal` docker network plus host loopback ports. SQLite DB lives in `./data/focus.db` (bind-mounted volume).
 
-### Redeploy from local
+### Redeploy
+
+The repo is cloned at `~/focusly` on chemex (private repo `Shimmy0530/focusly`, gh CLI is the credential helper). The runtime `.env` is **not** in git — it lives only at `~/focusly/focus/.env` on chemex (perms 600). The SQLite DB is at `~/focusly/focus/data/focus.db` (also untracked).
 
 ```bash
-cd "/Users/xedryk/Documents/Docker Repos/focusly"
-tar --exclude='focus/.venv' --exclude='focus/data' --exclude='focus/node_modules' \
-    --exclude='focus/.svelte-kit' --exclude='focus/build' --exclude='focus/__pycache__' \
-    -czf /tmp/focus-deploy.tar.gz focus/
-scp /tmp/focus-deploy.tar.gz chemex:~/
-ssh chemex 'rm -rf ~/focus.old && mv ~/focus ~/focus.old && tar -xzf ~/focus-deploy.tar.gz && find ~/focus -name "._*" -delete && cp ~/focus.old/.env ~/focus/.env && chmod 600 ~/focus/.env && cd ~/focus && docker compose up -d --build'
+# local
+git push
+
+# chemex
+ssh chemex 'cd ~/focusly && git pull && cd focus && docker compose up -d --build'
 ```
 
-For backend-only changes, scp the changed files directly and `docker compose up -d --build backend` to skip the slow svelte build.
+For backend-only changes, append `backend` to the compose command to skip the slow svelte build:
 
-The macOS `tar` emits AppleDouble (`._*`) files into the archive — always run `find ~/focus -name "._*" -delete` after extracting on Linux.
+```bash
+ssh chemex 'cd ~/focusly && git pull && cd focus && docker compose up -d --build backend'
+```
+
+`~/focus.bak` on chemex is the legacy scp-tarball deploy preserved during cutover — safe to `rm -rf` once you trust the new layout.
 
 ## Local dev
 
