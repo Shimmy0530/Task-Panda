@@ -43,6 +43,8 @@ ssh chemex 'cd ~/focusly && git pull && cd focus && docker compose up -d --build
 
 `~/focus.bak` on chemex is the legacy scp-tarball deploy preserved during cutover — safe to `rm -rf` once you trust the new layout.
 
+**Container-owned host paths:** anything the containers write (notably `~/focusly/focus/data/`) is owned by root on the host. Host-side `mv`/`rm`/`chown` needs `sudo`.
+
 ## Local dev
 
 ```bash
