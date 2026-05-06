@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+  body {
+    background:
+      radial-gradient(ellipse 80% 50% at 50% -10%, rgba(217, 119, 6, 0.08), transparent 60%),
+      radial-gradient(ellipse 60% 40% at 90% 100%, rgba(91, 140, 90, 0.05), transparent 60%),
+      #0e0e0c;
+    min-height: 100dvh;
+  }
+  ::selection {
+    background: rgba(217, 119, 6, 0.35);
+    color: #f5f3ee;
+  }
+}
+
+@layer components {
+  .surface {
+    @apply bg-ink-850/80 border border-ink-700 backdrop-blur;
+  }
+  .btn {
+    @apply px-4 py-2 rounded-md border border-ink-700 hover:border-ink-500 transition text-sm font-medium;
+  }
+  .btn-primary {
+    @apply px-4 py-2 rounded-md bg-frog text-ink-950 hover:bg-frog-glow transition text-sm font-semibold;
+  }
+  .btn-ghost {
+    @apply px-3 py-1.5 text-ink-400 hover:text-ink-200 transition text-sm;
+  }
+  .input {
+    @apply w-full bg-ink-900 border border-ink-700 rounded-md px-3 py-2 text-ink-100 placeholder:text-ink-500 focus:outline-none focus:border-frog transition;
+  }
+  .label {
+    @apply text-xs uppercase tracking-widest text-ink-500 font-mono;
+  }
+}
+
+/* Subtle pulse for unstarted frog */
+@keyframes frog-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(217, 119, 6, 0.0); }
+  50% { box-shadow: 0 0 0 6px rgba(217, 119, 6, 0.12); }
+}
+.frog-pulse {
+  animation: frog-pulse 3s ease-in-out infinite;
+}
+
+/* Fullscreen focus mode reset */
+.focus-mode {
+  background: #0a0a09 !important;
+}
