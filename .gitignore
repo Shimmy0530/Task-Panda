@@ -1,0 +1,32 @@
+# Secrets — keep out at all costs
+.env
+.env.local
+*.env
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Node / SvelteKit
+node_modules/
+.svelte-kit/
+build/
+
+# Local data
+data/
+*.db
+*.db-journal
+
+# macOS
+.DS_Store
+._*
+
+# Editors
+.vscode/
+.idea/
+
+# Stale Caddy paths from earlier scaffold
+caddy_data/
+caddy_config/
+access.log

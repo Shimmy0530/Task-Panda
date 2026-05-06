@@ -1,0 +1,5 @@
+[project]
+name = "focus-backend"
+version = "0.1.0"
+description = "Focus — ADHD-aware productivity backend"
+requires-python = ">=3.12"
