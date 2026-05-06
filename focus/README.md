@@ -49,18 +49,37 @@ nano .env
 
 ## Deploy (chemex)
 
+DNS: A record `focus.baltito.com` → `35.202.245.176` (Cloudflare proxy ON). Containers bind `127.0.0.1:17840` (backend) and `127.0.0.1:17841` (frontend) — the host nginx fronts them on `:443`.
+
+### One-time setup
+
 ```bash
-# DNS:  A record focus.baltito.com  →  35.202.245.176  (Cloudflare proxy ON)
+# On chemex:
+gh auth login   # if not already (https, gh as credential helper)
+cd ~ && git clone https://github.com/Shimmy0530/focusly.git
+cd ~/focusly/focus
+nano .env       # paste runtime secrets — see "First-time setup" above
+chmod 600 .env
 
-# Containers bind 127.0.0.1:17840 (backend) and 127.0.0.1:17841 (frontend).
 docker compose up -d --build
-docker compose logs -f
 
-# nginx vhost (one-time) — wildcard cert at /etc/ssl/cloudflare/ already covers focus.baltito.com
+# nginx vhost — wildcard cert at /etc/ssl/cloudflare/ already covers focus.baltito.com
 sudo cp deploy/focus.baltito.com.nginx /etc/nginx/sites-available/focus.baltito.com
 sudo ln -sf /etc/nginx/sites-available/focus.baltito.com /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
 ```
+
+### Updates
+
+```bash
+# local
+git push
+
+# chemex
+ssh chemex 'cd ~/focusly && git pull && cd focus && docker compose up -d --build'
+```
+
+Backend-only edits: append `backend` to the compose command to skip the svelte build.
 
 ## Local dev
 
@@ -99,6 +118,7 @@ npm run dev                       # :5173
 ## Backups
 
 ```bash
+# crontab on chemex (db lives at ~/focusly/focus/data/focus.db, mounted as /data in the container)
 0 3 * * * docker exec focus-backend sqlite3 /data/focus.db ".backup /data/focus-$(date +\%F).db"
 ```
 
