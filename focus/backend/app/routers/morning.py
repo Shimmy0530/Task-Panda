@@ -164,3 +164,15 @@ def skip(
     user.last_ritual_date = today
     db.commit()
     return {"ok": True}
+
+
+@router.post("/reset")
+def reset(
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Clear last_ritual_date so the morning wizard runs again.
+    Today's tasks stay; the wizard pre-fills the existing frog."""
+    user.last_ritual_date = None
+    db.commit()
+    return {"ok": True}

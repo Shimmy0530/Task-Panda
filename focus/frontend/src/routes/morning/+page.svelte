@@ -203,18 +203,19 @@
         what else? two, max.
       </h2>
       <p class="text-ink-400 text-sm mb-8 leading-relaxed">
-        After the frog, room for two supporting tasks. Anything more spreads you thin.
-        Leave blank if there's nothing real.
+        Two other things you'd like to get done today — separate from the frog,
+        not pieces of it. Each gets its own pomodoro. Leave blank if there's nothing real.
       </p>
 
       <div class="surface rounded-md px-4 py-3 mb-4 flex items-baseline gap-3">
         <span class="text-frog">🐸</span>
         <span class="text-ink-200 text-sm">{frogTitle}</span>
+        <span class="text-ink-600 text-xs ml-auto">today's frog · already set</span>
       </div>
 
       <div class="space-y-3">
-        <input class="input" placeholder="supporting task 1 (optional)" bind:value={support1} />
-        <input class="input" placeholder="supporting task 2 (optional)" bind:value={support2} />
+        <input class="input" placeholder="other task 1 (optional)" bind:value={support1} />
+        <input class="input" placeholder="other task 2 (optional)" bind:value={support2} />
       </div>
 
     <!-- Step 4: confirm -->

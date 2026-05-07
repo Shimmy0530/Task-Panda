@@ -66,5 +66,6 @@ export function localToday() {
 export const morning = {
   state: (today) => api.get(`/api/morning/state?today=${today}`),
   complete: (payload) => api.post('/api/morning/complete', payload),
-  skip: (today) => api.post(`/api/morning/skip?today=${today}`)
+  skip: (today) => api.post(`/api/morning/skip?today=${today}`),
+  reset: () => api.post('/api/morning/reset')
 };
