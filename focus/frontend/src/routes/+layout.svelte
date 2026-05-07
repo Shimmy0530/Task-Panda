@@ -46,6 +46,7 @@
         <a href="/dictate" class="text-ink-400 hover:text-ink-100" class:!text-ink-100={$page.url.pathname.startsWith('/dictate')}>dictate</a>
         <a href="/capture" class="text-ink-400 hover:text-ink-100" class:!text-ink-100={$page.url.pathname.startsWith('/capture')}>inbox</a>
         <a href="/review" class="text-ink-400 hover:text-ink-100" class:!text-ink-100={$page.url.pathname.startsWith('/review')}>review</a>
+        <a href="/settings" class="text-ink-400 hover:text-ink-100" class:!text-ink-100={$page.url.pathname.startsWith('/settings')}>settings</a>
         <span class="ml-auto text-ink-500 font-mono text-xs hidden sm:block">⌘ . capture</span>
       </nav>
     </header>
@@ -72,7 +73,7 @@
           placeholder="what just pulled at your attention?"
         ></textarea>
         <p class="text-xs text-ink-500 mt-2">
-          ⚠ no case data. titles only. ⌘↵ save · esc cancel
+          ⌘↵ save · esc cancel
         </p>
         <div class="flex justify-end gap-2 mt-3">
           <button class="btn-ghost" on:click={() => (showCapture = false)}>cancel</button>

@@ -23,6 +23,22 @@ def init_db() -> None:
             conn.execute(text("ALTER TABLE users ADD COLUMN last_ritual_date DATE"))
         except OperationalError:
             pass
+        try:
+            conn.execute(text("ALTER TABLE users ADD COLUMN stuck_threshold_days INTEGER DEFAULT 5"))
+        except OperationalError:
+            pass
+        try:
+            conn.execute(text("ALTER TABLE tasks ADD COLUMN subtasks TEXT DEFAULT '[]'"))
+        except OperationalError:
+            pass
+        try:
+            conn.execute(text("ALTER TABLE tasks ADD COLUMN effort VARCHAR(1)"))
+        except OperationalError:
+            pass
+        try:
+            conn.execute(text("ALTER TABLE tasks ADD COLUMN carried_count INTEGER DEFAULT 0"))
+        except OperationalError:
+            pass
 
     # Bootstrap single owner
     with SessionLocal() as db:

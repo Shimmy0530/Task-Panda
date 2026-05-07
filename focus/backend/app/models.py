@@ -1,6 +1,6 @@
 from datetime import datetime, date
 from sqlalchemy import (
-    String, Integer, Boolean, DateTime, Date, ForeignKey, Text, Index
+    String, Integer, Boolean, DateTime, Date, ForeignKey, Text, Index, JSON
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -15,6 +15,7 @@ class User(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     last_ritual_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    stuck_threshold_days: Mapped[int] = mapped_column(Integer, default=5, nullable=False)
 
 
 class Task(Base):
@@ -25,9 +26,12 @@ class Task(Base):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_frog: Mapped[bool] = mapped_column(Boolean, default=False)
     status: Mapped[str] = mapped_column(String(20), default="pending")
-    day_date: Mapped[date] = mapped_column(Date, index=True)
+    day_date: Mapped[date | None] = mapped_column(Date, index=True, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    subtasks: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
+    effort: Mapped[str | None] = mapped_column(String(1), nullable=True)
+    carried_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     sessions = relationship("Session", back_populates="task", cascade="all,delete")
 

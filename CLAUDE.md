@@ -95,10 +95,11 @@ All backend routes are under `/api/*` (every router sets a `/api/...` prefix). n
 
 Routers (`backend/app/routers/`):
 - `auth.py` — login/logout/me/config
-- `tasks.py` — CRUD plus `POST /api/tasks/{id}/dictation` for atomic dictation-block appends
+- `tasks.py` — CRUD plus `POST /api/tasks/{id}/dictation` (atomic dictation append), `POST /api/tasks/{id}/copy` (duplicate to today, subtasks reset to undone), `GET /api/tasks/backlog` (rows with `day_date IS NULL`)
 - `sessions.py` — pomodoro start/end + today/week dashboards
-- `morning.py` — `GET /state` and `POST /complete`/`/skip` for the 4-step ritual
-- `capture.py` — intrusive-thoughts inbox + `POST /api/llm/first-action`
+- `morning.py` — `GET /state` and `POST /complete`/`/skip` for the ritual. State now also returns `stuck_yesterday`, `stale_backlog`, `backlog_top`, `stuck_threshold_days`. Complete accepts `pull_from_backlog`, `dropped_stale_ids`, `kept_stale_ids` and prunes done subtasks + bumps `carried_count` on carry.
+- `capture.py` — intrusive-thoughts inbox + `POST /api/llm/first-action`, `POST /api/llm/subtasks` (AI breakdown — staged, not persisted), `POST /api/llm/weekly-review` (cached server-side per (user, day))
+- `settings.py` — `GET/PATCH /api/settings`; currently exposes `stuck_threshold_days` (default 5)
 - `transcribe.py` — `POST /api/transcribe` (audio → text) and `POST /api/outline` (text → cleaned outline)
 
 The voice flow is **two endpoints, not one**: the frontend uploads audio to `/api/transcribe`, then sends the transcript to `/api/outline` (with optional `task_id` for context), then writes the result via `/api/tasks/{id}/dictation`. An earlier scaffold had a duplicate combined endpoint at `/api/llm/transcribe`; that was removed because it had broken imports (`polish_dictation`, `..stt`).
@@ -110,21 +111,20 @@ The voice flow is **two endpoints, not one**: the frontend uploads audio to `/ap
 ### Domain invariants (enforced server-side)
 
 - **Max 5 tasks per `day_date`**, **max 1 frog (`is_frog=true`) per day**. `tasks.py` raises 400 on violation.
-- Morning ritual `complete` payload is the canonical way to plant a frog + supporting cast; it also processes yesterday's open tasks (`carry`/`drop`/`done`) and stamps `User.last_ritual_date`. "Carrying forward" demotes frog status — frogs must be re-chosen each day.
+- `Task.day_date` is **nullable**; null = backlog. Backlog rows don't count toward the day cap. Frogs can never live in the backlog.
+- `POST /api/tasks` with `day_date` omitted/null and `is_frog=false` creates a backlog row. `PATCH /api/tasks/{id}` with `day_date=<date>` graduates a backlog row to that day (cap re-checked, `carried_count` reset).
+- Morning ritual `complete` payload is the canonical way to plant a frog + supporting cast; it also processes yesterday's open tasks (`carry`/`drop`/`done`) and stamps `User.last_ritual_date`. "Carrying forward" demotes frog status — frogs must be re-chosen each day. Carry also prunes any done subtasks and increments `Task.carried_count` (used for stuck detection in next day's ritual).
+- Subtasks live as a JSON list `[{id, title, done}]` on `Task.subtasks` (cap 25 server-side). PATCH replaces the full list. Copying a task deep-copies subtasks with all `done=false`.
 - Dictation appends are atomic: `POST /api/tasks/{id}/dictation` reads `task.notes`, appends a `🎙 dictation · <UTC stamp>` block, commits once.
 
 ### LLM + STT
 
-`backend/app/llm.py` is a thin client over an OpenAI-compatible chat-completions API (Groq default). Two functions:
+`backend/app/llm.py` is a thin client over an OpenAI-compatible chat-completions API (Groq default). Functions:
 - `first_action(title, notes)` — returns a single ≤5-min concrete action
 - `outline_from_transcript(transcript, task_title?, task_notes?)` — returns Markdown outline
+- `subtasks_from_task(title, notes)` — returns a list of 0–7 short action steps (JSON-mode, defensive parse)
+- `weekly_review(events)` — returns a ≤200-word Markdown summary over a week's session/completion data
 
 `backend/app/transcribe.py` is the Whisper client (`transcribe_audio` → dict with `text`/`duration`/`language`).
 
 To swap providers, edit `LLM_BASE_URL`/`LLM_MODEL`/`LLM_API_KEY` in `.env`. Whisper requires the same provider unless `transcribe.py` is forked.
-
-## OPSEC rules (from owner; load-bearing)
-
-The owner works with sensitive third-party subject material. **Never put case data anywhere in this app** — task titles, captures, dictation transcripts. The `SYSTEM_OUTLINE` prompt in `llm.py` actively redacts case-like identifiers (names, locations, dates, case refs) into `[SUBJECT]`/`[LOCATION]`/`[DATE]`/`[CASE_REF]` placeholders. Preserve that behavior when editing the prompt — don't relax it.
-
-The backend container's only outbound network destination is `api.groq.com` (per design, not enforced). Audio leaves the user's infra during transcription; the README's OPSEC notice treats dictation as the highest-risk surface.

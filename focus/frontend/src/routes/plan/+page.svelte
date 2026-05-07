@@ -2,8 +2,10 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { tasks as tasksApi, llm, sessions as sessionsApi, auth, morning, localToday } from '$lib/api.js';
+  import Subtasks from '$lib/Subtasks.svelte';
 
   let items = [];
+  let backlogCount = 0;
   let newTitle = '';
   let newNotes = '';
   let newIsFrog = false;
@@ -11,9 +13,18 @@
   let loadingAction = {};
   let err = '';
   let ritualPending = false;
+  let expanded = {}; // task_id -> bool (subtask panel open)
+  let nudgeId = null; // task whose subtasks all just became done; flashes "mark done?"
+  let nudgeTimer = null;
+  let copiedId = null;
+  let copiedTimer = null;
 
   async function load() {
     items = await tasksApi.list();
+    try {
+      const bl = await tasksApi.backlog();
+      backlogCount = bl.length;
+    } catch {}
   }
 
   onMount(async () => {
@@ -24,11 +35,10 @@
       await load();
       if (!ritualToday) {
         if (items.length === 0) {
-          // Force the ritual on a fresh day
           goto('/morning', { replaceState: true });
           return;
         }
-        ritualPending = true; // soft banner
+        ritualPending = true;
       }
     } catch {
       await load();
@@ -46,7 +56,8 @@
       await tasksApi.create({
         title: newTitle.trim(),
         notes: newNotes.trim() || null,
-        is_frog: newIsFrog && !hasFrog
+        is_frog: newIsFrog && !hasFrog,
+        day_date: localToday()
       });
       newTitle = '';
       newNotes = '';
@@ -58,7 +69,13 @@
   }
 
   async function toggleDone(t) {
+    if (t.status !== 'done' && (t.subtasks || []).some((s) => !s.done) && (t.subtasks || []).length > 0) {
+      const open = t.subtasks.filter((s) => !s.done).length;
+      const total = t.subtasks.length;
+      if (!confirm(`${open} of ${total} subtasks open. Mark done anyway?`)) return;
+    }
     await tasksApi.update(t.id, { status: t.status === 'done' ? 'pending' : 'done' });
+    if (nudgeId === t.id) clearNudge();
     await load();
   }
 
@@ -100,6 +117,54 @@
     await morning.reset();
     goto('/morning');
   }
+
+  function toggleExpand(t) {
+    expanded[t.id] = !expanded[t.id];
+    expanded = expanded;
+  }
+
+  async function onSubtasksChange(t, subtasks) {
+    const had = (t.subtasks || []).filter((s) => s.done).length;
+    const total = subtasks.length;
+    const doneNow = subtasks.filter((s) => s.done).length;
+    await tasksApi.update(t.id, { subtasks });
+    if (total > 0 && doneNow === total && t.status !== 'done' && doneNow > had) {
+      nudgeId = t.id;
+      if (nudgeTimer) clearTimeout(nudgeTimer);
+      nudgeTimer = setTimeout(() => clearNudge(), 8000);
+    }
+    await load();
+  }
+
+  function clearNudge() {
+    nudgeId = null;
+    if (nudgeTimer) clearTimeout(nudgeTimer);
+    nudgeTimer = null;
+  }
+
+  async function cycleEffort(t) {
+    const cycle = [null, 'S', 'M', 'L'];
+    const i = cycle.indexOf(t.effort ?? null);
+    const next = cycle[(i + 1) % cycle.length];
+    await tasksApi.update(t.id, { effort: next });
+    await load();
+  }
+
+  async function copyTask(t) {
+    try {
+      await tasksApi.copy(t.id);
+      copiedId = t.id;
+      if (copiedTimer) clearTimeout(copiedTimer);
+      copiedTimer = setTimeout(() => (copiedId = null), 2000);
+      await load();
+    } catch (e) {
+      err = e.message;
+    }
+  }
+
+  function effortLabel(e) {
+    return e || '—';
+  }
 </script>
 
 <div class="space-y-10">
@@ -135,14 +200,54 @@
             {#if frog.status === 'done'}<span class="text-ink-950 text-xs">✓</span>{/if}
           </button>
           <div class="flex-1 min-w-0">
-            <h3
-              class="text-xl text-ink-100 leading-snug"
-              class:line-through={frog.status === 'done'}
-              class:text-ink-500={frog.status === 'done'}
-            >
-              {frog.title}
-            </h3>
+            <div class="flex items-start gap-2">
+              <h3
+                class="text-xl text-ink-100 leading-snug flex-1"
+                class:line-through={frog.status === 'done'}
+                class:text-ink-500={frog.status === 'done'}
+              >
+                {frog.title}
+              </h3>
+              <button
+                class="btn-ghost text-xs px-2 border border-ink-700 rounded font-mono"
+                on:click={() => cycleEffort(frog)}
+                title="effort: small / medium / large"
+              >{effortLabel(frog.effort)}</button>
+              <button
+                class="btn-ghost text-xs"
+                on:click={() => copyTask(frog)}
+                title="copy as new task today"
+              >📋</button>
+            </div>
             {#if frog.notes}<p class="text-ink-400 text-sm mt-1">{frog.notes}</p>{/if}
+
+            <div class="mt-3">
+              {#if (frog.subtasks || []).length > 0}
+                <button class="btn-ghost text-xs" on:click={() => toggleExpand(frog)}>
+                  ▸ {(frog.subtasks || []).filter((s) => s.done).length}/{frog.subtasks.length} subtasks
+                </button>
+              {:else}
+                <button class="btn-ghost text-xs text-ink-500" on:click={() => toggleExpand(frog)}>
+                  + break down
+                </button>
+              {/if}
+            </div>
+
+            {#if expanded[frog.id]}
+              <div class="mt-3 pl-2 border-l border-ink-700">
+                <Subtasks task={frog} onChange={(st) => onSubtasksChange(frog, st)} />
+              </div>
+            {/if}
+
+            {#if nudgeId === frog.id}
+              <div class="mt-3 border border-moss/50 bg-moss/10 rounded-md p-2 flex items-center justify-between">
+                <span class="text-moss text-xs">all subtasks done — mark task as done?</span>
+                <div class="flex gap-2">
+                  <button class="btn-primary text-xs" on:click={() => toggleDone(frog)}>mark done</button>
+                  <button class="btn-ghost text-xs" on:click={clearNudge}>dismiss</button>
+                </div>
+              </div>
+            {/if}
 
             {#if frog.status !== 'done'}
               <div class="mt-4 flex flex-wrap gap-2">
@@ -163,6 +268,9 @@
           </div>
           <button class="btn-ghost text-ink-600 hover:text-rust" on:click={() => remove(frog)} aria-label="delete">×</button>
         </div>
+        {#if copiedId === frog.id}
+          <p class="text-moss text-xs mt-2 italic">copied to today</p>
+        {/if}
       </div>
     {:else}
       <div class="border border-dashed border-ink-700 rounded-lg p-5 text-ink-500 text-sm">
@@ -177,33 +285,71 @@
     <p class="label mb-3">other</p>
     <ul class="space-y-2">
       {#each others as t (t.id)}
-        <li class="surface rounded-md px-4 py-3 flex items-start gap-3">
-          <button
-            class="mt-1 w-4 h-4 rounded border border-ink-500 flex-none flex items-center justify-center"
-            class:!bg-moss={t.status === 'done'}
-            on:click={() => toggleDone(t)}
-          >
-            {#if t.status === 'done'}<span class="text-ink-950 text-[10px]">✓</span>{/if}
-          </button>
-          <div class="flex-1 min-w-0">
-            <p
-              class="text-ink-100"
-              class:line-through={t.status === 'done'}
-              class:text-ink-500={t.status === 'done'}
+        <li class="surface rounded-md px-4 py-3">
+          <div class="flex items-start gap-3">
+            <button
+              class="mt-1 w-4 h-4 rounded border border-ink-500 flex-none flex items-center justify-center"
+              class:!bg-moss={t.status === 'done'}
+              on:click={() => toggleDone(t)}
             >
-              {t.title}
-            </p>
-            {#if t.notes}<p class="text-ink-500 text-sm">{t.notes}</p>{/if}
-          </div>
-          <div class="flex items-center gap-1">
-            {#if t.status !== 'done'}
-              <button class="btn-ghost text-xs" on:click={() => startFocus(t, 25)}>focus</button>
-              <a class="btn-ghost text-xs" href="/dictate?task={t.id}" title="dictate">🎙</a>
-              {#if !hasFrog}
-                <button class="btn-ghost text-xs text-frog" on:click={() => makeFrog(t)}>→ frog</button>
+              {#if t.status === 'done'}<span class="text-ink-950 text-[10px]">✓</span>{/if}
+            </button>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2">
+                <p
+                  class="text-ink-100 flex-1"
+                  class:line-through={t.status === 'done'}
+                  class:text-ink-500={t.status === 'done'}
+                >
+                  {t.title}
+                </p>
+                <button
+                  class="btn-ghost text-[10px] px-1.5 border border-ink-700 rounded font-mono"
+                  on:click={() => cycleEffort(t)}
+                  title="effort: small / medium / large"
+                >{effortLabel(t.effort)}</button>
+              </div>
+              {#if t.notes}<p class="text-ink-500 text-sm">{t.notes}</p>{/if}
+              <div class="mt-1">
+                {#if (t.subtasks || []).length > 0}
+                  <button class="btn-ghost text-[11px]" on:click={() => toggleExpand(t)}>
+                    ▸ {(t.subtasks || []).filter((s) => s.done).length}/{t.subtasks.length} subtasks
+                  </button>
+                {:else}
+                  <button class="btn-ghost text-[11px] text-ink-500" on:click={() => toggleExpand(t)}>
+                    + break down
+                  </button>
+                {/if}
+              </div>
+              {#if expanded[t.id]}
+                <div class="mt-2 pl-2 border-l border-ink-700">
+                  <Subtasks task={t} onChange={(st) => onSubtasksChange(t, st)} />
+                </div>
               {/if}
-            {/if}
-            <button class="btn-ghost text-ink-600 hover:text-rust" on:click={() => remove(t)}>×</button>
+              {#if nudgeId === t.id}
+                <div class="mt-2 border border-moss/50 bg-moss/10 rounded-md p-2 flex items-center justify-between">
+                  <span class="text-moss text-xs">all subtasks done — mark task as done?</span>
+                  <div class="flex gap-2">
+                    <button class="btn-primary text-xs" on:click={() => toggleDone(t)}>mark done</button>
+                    <button class="btn-ghost text-xs" on:click={clearNudge}>dismiss</button>
+                  </div>
+                </div>
+              {/if}
+              {#if copiedId === t.id}
+                <p class="text-moss text-xs mt-1 italic">copied to today</p>
+              {/if}
+            </div>
+            <div class="flex items-center gap-1">
+              {#if t.status !== 'done'}
+                <button class="btn-ghost text-xs" on:click={() => startFocus(t, 25)}>focus</button>
+                <a class="btn-ghost text-xs" href="/dictate?task={t.id}" title="dictate">🎙</a>
+                {#if !hasFrog}
+                  <button class="btn-ghost text-xs text-frog" on:click={() => makeFrog(t)}>→ frog</button>
+                {/if}
+              {/if}
+              <button class="btn-ghost text-xs" on:click={() => copyTask(t)} title="copy as new task today">📋</button>
+              <button class="btn-ghost text-ink-600 hover:text-rust" on:click={() => remove(t)}>×</button>
+            </div>
           </div>
         </li>
       {/each}
@@ -213,7 +359,7 @@
     <div class="mt-4 surface rounded-md p-4 space-y-3">
       <input
         class="input"
-        placeholder="add task — keep titles abstract, no case data"
+        placeholder="add task"
         bind:value={newTitle}
         on:keydown={(e) => e.key === 'Enter' && !e.shiftKey && addTask()}
       />
@@ -229,7 +375,12 @@
     </div>
   </section>
 
-  <footer class="pt-6 border-t border-ink-800 flex justify-end">
+  <footer class="pt-6 border-t border-ink-800 flex items-center justify-between">
+    {#if backlogCount > 0}
+      <a class="text-xs text-ink-500 hover:text-ink-200 font-mono" href="/backlog">📦 backlog ({backlogCount})</a>
+    {:else}
+      <a class="text-xs text-ink-600 hover:text-ink-300 font-mono" href="/backlog">📦 backlog</a>
+    {/if}
     <button class="btn-ghost text-xs text-ink-600 hover:text-ink-300" on:click={redoMorning}>
       redo morning ritual
     </button>
