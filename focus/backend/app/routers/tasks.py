@@ -124,7 +124,9 @@ def update_task(
                 exclude_task_id=task.id,
             )
         task.day_date = new_day
-        if new_day is not None:
+        if new_day is None:
+            task.is_frog = False  # frogs can't live in backlog
+        else:
             task.carried_count = 0  # graduating from backlog resets
 
     if "is_frog" in data and data["is_frog"] is True and not task.is_frog:

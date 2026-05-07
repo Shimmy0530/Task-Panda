@@ -94,6 +94,8 @@ async def subtasks_endpoint(
         items = await subtasks_from_task(task.title, task.notes)
     except Exception as e:
         raise HTTPException(503, f"LLM unavailable: {e}")
+    if items is None:
+        raise HTTPException(503, "AI didn't return a parseable list. Try again.")
     return SubtasksResponse(
         subtasks=[SubtaskItem(id=uuid4().hex, title=s, done=False) for s in items]
     )
@@ -168,6 +170,10 @@ async def weekly_review_endpoint(
         summary = await weekly_review(events)
     except Exception as e:
         raise HTTPException(503, f"LLM unavailable: {e}")
+
+    # Don't cache degenerate output (refusals, empty strings, missing structure).
+    if not summary or not summary.strip() or "## " not in summary:
+        raise HTTPException(503, "AI returned an unusable summary. Try again.")
 
     now = datetime.utcnow()
     _WEEKLY_CACHE[cache_key] = (summary, now)

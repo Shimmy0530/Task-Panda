@@ -15,6 +15,7 @@
   let runStartedAt = null;
   let endChimePlayed = false;
   let showContext = false;
+  let subErr = '';
 
   // ADHD: variable reward — pick a different end tone each session
   const tones = [528, 432, 396, 639, 741];
@@ -122,13 +123,17 @@
 
   async function toggleSub(id) {
     if (!task) return;
+    const before = task.subtasks;
     const next = task.subtasks.map((s) => (s.id === id ? { ...s, done: !s.done } : s));
     task = { ...task, subtasks: next };
     try {
       const updated = await tasksApi.update(task.id, { subtasks: next });
       task = updated;
-    } catch {
-      // best-effort; UI already reflects toggle
+      subErr = '';
+    } catch (e) {
+      task = { ...task, subtasks: before };
+      subErr = e?.message || 'subtask save failed';
+      setTimeout(() => (subErr = ''), 4000);
     }
   }
 
@@ -181,6 +186,9 @@
             </li>
           {/each}
         </ul>
+        {#if subErr}
+          <p class="mt-2 text-rust text-xs">{subErr}</p>
+        {/if}
       </div>
     {/if}
 
