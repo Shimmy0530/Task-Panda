@@ -91,7 +91,9 @@ async def outline_from_transcript(
     )
 
 
-async def subtasks_from_task(title: str, notes: str | None) -> list[str]:
+async def subtasks_from_task(title: str, notes: str | None) -> list[str] | None:
+    """Returns subtask titles; [] = LLM said the task is atomic; None = unparseable output
+    (caller should surface as 503, not silently treat as 'atomic')."""
     raw = await _chat(
         [
             {"role": "system", "content": SYSTEM_SUBTASKS},
@@ -107,10 +109,11 @@ async def subtasks_from_task(title: str, notes: str | None) -> list[str]:
             cleaned = cleaned[:-3].strip()
     try:
         data = json.loads(cleaned)
-        items = data.get("subtasks", []) if isinstance(data, dict) else []
-        return [s.strip() for s in items if isinstance(s, str) and s.strip()][:25]
-    except (json.JSONDecodeError, AttributeError, TypeError):
-        return []
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(data, dict) or not isinstance(data.get("subtasks"), list):
+        return None
+    return [s.strip() for s in data["subtasks"] if isinstance(s, str) and s.strip()][:25]
 
 
 async def weekly_review(events: dict) -> str:

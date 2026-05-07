@@ -12,6 +12,14 @@ The `focusly/` directory wraps the actual app at `focus/` plus deployment artifa
 
 Treat `focus/` as the project root for almost all work.
 
+## Naming: code vs. user-facing
+
+User-facing product name is **Task Panda**. Code identifiers, repo path, container names (`focus-frontend`/`focus-backend`), subdomain (`focus.baltito.com`), DB columns (`is_frog`), and cookie names stay unchanged — a deliberate rename pass is deferred. New UI strings, page titles, READMEs, and brand copy say "Task Panda." Don't refactor existing identifiers unless explicitly asked.
+
+## Copy style (user-facing strings)
+
+Plain, accessible framing only. Avoid productivity-nerd idioms in UI copy: "eat the frog," "MVP," "OKR," "kanban," "deep work," etc. The data layer keeps internal metaphors (`is_frog` column, 🐸 emoji) but user-facing strings should read in plain English: "the boring important one," "do first," etc.
+
 ## Deployment (deviates from `focus/README.md`)
 
 The README references Caddy and Let's Encrypt — that path was abandoned. Production uses host nginx on chemex with a Cloudflare Origin wildcard cert. When editing deployment, update both files together.
@@ -107,6 +115,10 @@ The voice flow is **two endpoints, not one**: the frontend uploads audio to `/ap
 ### Frontend
 
 `focus/frontend` is SvelteKit + Tailwind, built with `@sveltejs/adapter-node` (runs as `node build`). Routes mirror the URL structure 1:1 — pages live under `src/routes/<page>/+page.svelte`. All HTTP goes through `src/lib/api.js`, which always sends `credentials: 'include'` so the auth cookie travels. Same-origin via the nginx split, so CORS is a non-issue in production.
+
+#### Timezone discipline
+
+Server runs UTC. The frontend's "today" must always be browser-local. Any frontend call that filters by day passes `localToday()` from `src/lib/api.js` (defined as `new Date().toLocaleDateString('en-CA')`). Never let the backend fall back to its own `Date.today()` for user-facing date filters — they will diverge across midnight UTC and silently hide tasks.
 
 ### Domain invariants (enforced server-side)
 

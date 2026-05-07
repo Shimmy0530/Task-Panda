@@ -223,7 +223,7 @@ def complete(
             .all()
         )
         for t in kept:
-            t.created_at = now  # re-stamp to suppress stale prompt for another 30 days
+            t.created_at = now  # re-stamp so it falls outside the stale window
     if payload.dropped_stale_ids:
         # Hard delete — user-acknowledged trash.
         dropped = (
