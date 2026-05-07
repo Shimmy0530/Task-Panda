@@ -33,3 +33,4 @@ data/
 caddy_data/
 caddy_config/
 access.log
+analysis.md

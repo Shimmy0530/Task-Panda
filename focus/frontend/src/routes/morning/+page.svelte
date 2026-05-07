@@ -200,23 +200,30 @@
     <!-- Step 3: supporting -->
     {:else if step === 3}
       <h2 class="font-display text-3xl text-ink-100 tracking-tightest leading-tight mb-3">
-        what else? two, max.
+        two more, separate.
       </h2>
       <p class="text-ink-400 text-sm mb-8 leading-relaxed">
-        Two other things you'd like to get done today — separate from the frog,
-        not pieces of it. Each gets its own pomodoro. Leave blank if there's nothing real.
+        Up to two other independent things to get done today.
+        Each is its own task with its own pomodoro — not a step inside the frog.
+        Leave blank if there's nothing real.
       </p>
 
-      <div class="surface rounded-md px-4 py-3 mb-4 flex items-baseline gap-3">
-        <span class="text-frog">🐸</span>
-        <span class="text-ink-200 text-sm">{frogTitle}</span>
-        <span class="text-ink-600 text-xs ml-auto">today's frog · already set</span>
-      </div>
-
-      <div class="space-y-3">
-        <input class="input" placeholder="other task 1 (optional)" bind:value={support1} />
-        <input class="input" placeholder="other task 2 (optional)" bind:value={support2} />
-      </div>
+      <ul class="space-y-2">
+        <li class="surface rounded-md px-4 py-3 flex items-baseline gap-3">
+          <span class="label text-ink-600 w-12 flex-none">task 1</span>
+          <span class="text-frog">🐸</span>
+          <span class="text-ink-200 text-sm flex-1 truncate">{frogTitle}</span>
+          <span class="text-ink-600 text-[10px] uppercase tracking-wider">locked in</span>
+        </li>
+        <li class="flex items-baseline gap-3">
+          <span class="label text-ink-600 w-12 flex-none">task 2</span>
+          <input class="input flex-1" placeholder="another independent task (optional)" bind:value={support1} />
+        </li>
+        <li class="flex items-baseline gap-3">
+          <span class="label text-ink-600 w-12 flex-none">task 3</span>
+          <input class="input flex-1" placeholder="another independent task (optional)" bind:value={support2} />
+        </li>
+      </ul>
 
     <!-- Step 4: confirm -->
     {:else if step === 4}
