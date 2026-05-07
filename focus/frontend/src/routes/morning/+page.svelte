@@ -207,6 +207,11 @@
         Leave blank if there's nothing real.
       </p>
 
+      <div class="surface rounded-md px-4 py-3 mb-4 flex items-baseline gap-3">
+        <span class="text-frog">🐸</span>
+        <span class="text-ink-200 text-sm">{frogTitle}</span>
+      </div>
+
       <div class="space-y-3">
         <input class="input" placeholder="supporting task 1 (optional)" bind:value={support1} />
         <input class="input" placeholder="supporting task 2 (optional)" bind:value={support2} />
