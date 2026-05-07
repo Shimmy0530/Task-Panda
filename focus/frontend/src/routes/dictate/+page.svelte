@@ -221,15 +221,6 @@
     {/if}
   </header>
 
-  <div class="border border-rust/40 bg-rust/5 rounded-md p-4 text-sm">
-    <p class="font-mono text-rust mb-1 text-xs tracking-widest uppercase">⚠ opsec</p>
-    <p class="text-ink-300 leading-relaxed">
-      Audio is sent to <span class="font-mono">api.groq.com</span>.
-      <strong class="text-ink-100">No subject names, case numbers, addresses, or active-investigation specifics.</strong>
-      Talk in abstractions.
-    </p>
-  </div>
-
   {#if !transcript && !processing}
     <div class="surface rounded-lg p-10 flex flex-col items-center">
       <button

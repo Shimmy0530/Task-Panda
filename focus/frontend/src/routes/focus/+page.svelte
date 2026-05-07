@@ -15,6 +15,7 @@
   let runStartedAt = null;
   let endChimePlayed = false;
   let showContext = false;
+  let subErr = '';
 
   // ADHD: variable reward — pick a different end tone each session
   const tones = [528, 432, 396, 639, 741];
@@ -118,6 +119,23 @@
   $: ss = String(remaining % 60).padStart(2, '0');
   $: progress = Math.min(100, (elapsed / durationSec) * 100);
   $: overtime = elapsed > durationSec;
+  $: doneCount = (task?.subtasks || []).filter((s) => s.done).length;
+
+  async function toggleSub(id) {
+    if (!task) return;
+    const before = task.subtasks;
+    const next = task.subtasks.map((s) => (s.id === id ? { ...s, done: !s.done } : s));
+    task = { ...task, subtasks: next };
+    try {
+      const updated = await tasksApi.update(task.id, { subtasks: next });
+      task = updated;
+      subErr = '';
+    } catch (e) {
+      task = { ...task, subtasks: before };
+      subErr = e?.message || 'subtask save failed';
+      setTimeout(() => (subErr = ''), 4000);
+    }
+  }
 
   // Body-double nudge: every 12 min, brief check-in
   let nudge = null;
@@ -152,6 +170,27 @@
         style="width: {progress}%"
       ></div>
     </div>
+
+    {#if (task.subtasks || []).length > 0}
+      <div class="w-full max-w-xl mt-8">
+        <p class="label mb-2">subtasks · {doneCount}/{task.subtasks.length} done</p>
+        <ul class="space-y-1.5">
+          {#each task.subtasks as s (s.id)}
+            <li class="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={s.done}
+                on:change={() => toggleSub(s.id)}
+              />
+              <span class:line-through={s.done} class:text-ink-500={s.done}>{s.title}</span>
+            </li>
+          {/each}
+        </ul>
+        {#if subErr}
+          <p class="mt-2 text-rust text-xs">{subErr}</p>
+        {/if}
+      </div>
+    {/if}
 
     {#if nudge}
       <div class="mt-8 text-ink-400 text-sm italic animate-pulse">{nudge}</div>

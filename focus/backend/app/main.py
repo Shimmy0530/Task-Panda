@@ -10,6 +10,7 @@ from .routers import sessions as sessions_router
 from .routers.capture import capture_router, llm_router
 from .routers import transcribe as transcribe_router
 from .routers import morning as morning_router
+from .routers import settings as settings_router
 
 
 @asynccontextmanager
@@ -35,6 +36,7 @@ app.include_router(capture_router)
 app.include_router(llm_router)
 app.include_router(transcribe_router.router)
 app.include_router(morning_router.router)
+app.include_router(settings_router.router)
 
 
 @app.get("/api/health")

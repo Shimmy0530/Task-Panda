@@ -34,3 +34,4 @@ caddy_data/
 caddy_config/
 access.log
 analysis.md
+focus/frontend/package-lock.json

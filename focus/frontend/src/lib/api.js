@@ -41,6 +41,8 @@ export const tasks = {
   create: (t) => api.post('/api/tasks', t),
   update: (id, patch) => api.patch(`/api/tasks/${id}`, patch),
   remove: (id) => api.del(`/api/tasks/${id}`),
+  copy: (id) => api.post(`/api/tasks/${id}/copy`),
+  backlog: () => api.get('/api/tasks/backlog'),
   appendDictation: (id, outline, transcript) =>
     api.post(`/api/tasks/${id}/dictation`, { outline, transcript })
 };
@@ -60,7 +62,9 @@ export const captures = {
 };
 
 export const llm = {
-  firstAction: (title, notes) => api.post('/api/llm/first-action', { title, notes })
+  firstAction: (title, notes) => api.post('/api/llm/first-action', { title, notes }),
+  subtasks: (task_id) => api.post('/api/llm/subtasks', { task_id }),
+  weeklyReview: () => api.post('/api/llm/weekly-review')
 };
 
 export const morning = {
@@ -68,4 +72,9 @@ export const morning = {
   complete: (payload) => api.post('/api/morning/complete', payload),
   skip: (today) => api.post(`/api/morning/skip?today=${today}`),
   reset: () => api.post('/api/morning/reset')
+};
+
+export const settings = {
+  get: () => api.get('/api/settings'),
+  update: (patch) => api.patch('/api/settings', patch)
 };

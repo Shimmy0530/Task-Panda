@@ -1,3 +1,4 @@
+import json
 import httpx
 from .config import settings
 
@@ -16,10 +17,24 @@ Rules:
 - Preserve the speaker's actual ideas; do not invent content not present in the transcript.
 - Drop filler ("um", "you know", "like", repetition).
 - Group related thoughts. Surface the implicit structure.
-- If the speaker mentions specific names, places, numbers, or identifiers that look like case data,
-  REPLACE them with abstract placeholders ([SUBJECT], [LOCATION], [DATE], [CASE_REF]).
 - Begin with a 1-sentence summary, then the outline.
 - Do not add a conclusion or commentary."""
+
+SYSTEM_SUBTASKS = """You break a task into 3-7 concrete sub-steps for an ADHD user.
+Rules:
+- Output JSON ONLY: {"subtasks": ["step 1", "step 2", ...]}.
+- Each step is a single concrete action, ≤ 80 chars, action verb first ("draft …", "send …", "review …").
+- Parallel grammar across steps. No numbering, no nesting.
+- If the task is already atomic (e.g. "send one email"), return {"subtasks": []}."""
+
+SYSTEM_WEEKLY_REVIEW = """You produce a calm, one-screen weekly summary for an ADHD user
+based on their last 7 days of focus sessions and task completions.
+Rules:
+- Plain Markdown, ≤ 200 words.
+- Three sections, each as an "## " heading: "what got done" (1-2 sentences),
+  "what kept getting carried" (list of 0-3 bullet items),
+  "consider dropping or re-framing" (list of 0-3 bullet items with one-sentence reasons).
+- No motivational filler. No advice not grounded in the data."""
 
 
 async def _chat(messages: list[dict], max_tokens: int = 200, temperature: float = 0.4) -> str:
@@ -73,4 +88,40 @@ async def outline_from_transcript(
         ],
         max_tokens=900,
         temperature=0.3,
+    )
+
+
+async def subtasks_from_task(title: str, notes: str | None) -> list[str] | None:
+    """Returns subtask titles; [] = LLM said the task is atomic; None = unparseable output
+    (caller should surface as 503, not silently treat as 'atomic')."""
+    raw = await _chat(
+        [
+            {"role": "system", "content": SYSTEM_SUBTASKS},
+            {"role": "user", "content": f"Task: {title}\nNotes: {notes or '(none)'}"},
+        ],
+        max_tokens=400,
+        temperature=0.3,
+    )
+    cleaned = raw.strip()
+    if cleaned.startswith("```"):
+        cleaned = cleaned.removeprefix("```json").removeprefix("```").strip()
+        if cleaned.endswith("```"):
+            cleaned = cleaned[:-3].strip()
+    try:
+        data = json.loads(cleaned)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(data, dict) or not isinstance(data.get("subtasks"), list):
+        return None
+    return [s.strip() for s in data["subtasks"] if isinstance(s, str) and s.strip()][:25]
+
+
+async def weekly_review(events: dict) -> str:
+    return await _chat(
+        [
+            {"role": "system", "content": SYSTEM_WEEKLY_REVIEW},
+            {"role": "user", "content": json.dumps(events, default=str)},
+        ],
+        max_tokens=600,
+        temperature=0.4,
     )
