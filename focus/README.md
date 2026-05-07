@@ -10,16 +10,7 @@ A quiet, ADHD-aware focus tool. Self-hosted, single-user, accessed at `https://f
 - **LLM + STT:** Groq via OpenAI-compatible API
 - **Reverse proxy:** host nginx (see `deploy/focus.baltito.com.nginx`), TLS via Cloudflare Origin wildcard cert
 
-No SMTP, no external auth dependencies. The only outbound calls the backend code makes are to the configured `LLM_BASE_URL` (Groq by default). Network egress is not firewall-restricted at the container level — that's a property of the code, not an enforced sandbox.
-
-## ⚠️ OPSEC — read first
-
-This tool runs on a personally-owned VM and audio passes through Groq during dictation. Treat anything you type or speak into it as material that could leak.
-
-- **No case data anywhere.** Not in task titles, capture, or dictation.
-- **Abstractions only:** ✅ `"Q3 inspection report"` ❌ `"HM Pharmacy Winnetka writeup"`.
-- **Dictation is the highest risk surface.** Audio leaves your infra.
-- Treat the tool like a public Trello board.
+No SMTP, no external auth dependencies. The only outbound calls the backend code makes are to the configured `LLM_BASE_URL` (Groq by default).
 
 ## First-time setup
 
@@ -102,12 +93,14 @@ npm run dev                       # :5173
 | Route | Purpose |
 |---|---|
 | `/login` | Password (+ optional 2FA) |
-| `/morning` | Guided 4-step ritual (frog + supporting cast) |
-| `/plan` | Today's tasks (max 5, exactly one frog) |
-| `/focus?session=…&task=…` | Fullscreen pomodoro with wake-lock + context overlay |
+| `/morning` | Guided ritual: handle yesterday's open work, name the frog, pick up to two more, optionally pull from backlog, hygiene-prompt 30+ day stale items |
+| `/plan` | Today's tasks (max 5, exactly one frog). Inline subtasks (manual + AI breakdown), S/M/L effort chip, copy-task, footer link to backlog |
+| `/backlog` | Things that aren't for today (`day_date IS NULL`). Doesn't count against the day cap. `→ today` graduates a row (subject to cap) |
+| `/focus?session=…&task=…` | Fullscreen pomodoro with wake-lock + context overlay; subtask checklist ticks live |
 | `/dictate?task=<id>` | Record → Groq Whisper → LLM outline → save to task |
 | `/capture` | Inbox of intrusive thoughts (`⌘.` from anywhere) |
-| `/review` | Daily + 7-day frog ratio |
+| `/review` | Daily + 7-day frog ratio + AI weekly summary (cached server-side per day) |
+| `/settings` | Stuck-task threshold (default 5 days) |
 
 ## Hotkeys
 

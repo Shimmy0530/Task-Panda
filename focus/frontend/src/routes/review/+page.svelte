@@ -1,9 +1,12 @@
 <script>
   import { onMount } from 'svelte';
-  import { sessions } from '$lib/api.js';
+  import { sessions, llm } from '$lib/api.js';
 
   let today = null;
   let week = [];
+  let summary = '';
+  let summaryBusy = false;
+  let summaryErr = '';
 
   onMount(async () => {
     today = await sessions.today();
@@ -16,7 +19,74 @@
     return `${Math.floor(m / 60)}h ${m % 60}m`;
   }
 
+  async function generateSummary() {
+    summaryBusy = true;
+    summaryErr = '';
+    try {
+      const r = await llm.weeklyReview();
+      summary = r.summary;
+    } catch (e) {
+      summaryErr = e.message;
+    } finally {
+      summaryBusy = false;
+    }
+  }
+
+  // Tiny safe markdown renderer for trusted, short server output:
+  // - lines starting with `## ` become h3
+  // - lines starting with `- ` group into <ul>
+  // - blank lines split paragraphs
+  function renderSummary(md) {
+    const lines = md.split('\n');
+    const out = [];
+    let listOpen = false;
+    const closeList = () => {
+      if (listOpen) {
+        out.push('</ul>');
+        listOpen = false;
+      }
+    };
+    const esc = (s) => s
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    let para = [];
+    const flushPara = () => {
+      if (para.length) {
+        out.push(`<p class="text-ink-200 text-sm leading-relaxed mb-3">${esc(para.join(' '))}</p>`);
+        para = [];
+      }
+    };
+    for (const raw of lines) {
+      const line = raw.trim();
+      if (!line) {
+        flushPara();
+        closeList();
+        continue;
+      }
+      if (line.startsWith('## ')) {
+        flushPara();
+        closeList();
+        out.push(`<h3 class="label mt-4 mb-2">${esc(line.slice(3))}</h3>`);
+      } else if (line.startsWith('- ')) {
+        flushPara();
+        if (!listOpen) {
+          out.push('<ul class="space-y-1 mb-3 list-disc list-inside text-ink-200 text-sm">');
+          listOpen = true;
+        }
+        out.push(`<li>${esc(line.slice(2))}</li>`);
+      } else {
+        closeList();
+        para.push(line);
+      }
+    }
+    flushPara();
+    closeList();
+    return out.join('\n');
+  }
+
   $: maxWeek = Math.max(1, ...week.map((d) => d.total_seconds));
+  $: hasWeekData = week.some((d) => d.total_seconds > 0);
 </script>
 
 <div class="space-y-10">
@@ -50,6 +120,23 @@
         <p class="text-moss text-sm mt-4 italic">
           Frog majority. Good day.
         </p>
+      {/if}
+    </section>
+  {/if}
+
+  {#if hasWeekData}
+    <section>
+      <p class="label mb-3">this week, in review</p>
+      {#if !summary}
+        <button class="btn" on:click={generateSummary} disabled={summaryBusy}>
+          {summaryBusy ? 'thinking…' : '✨ generate this week\'s summary'}
+        </button>
+        {#if summaryErr}<p class="text-rust text-xs mt-2">{summaryErr}</p>{/if}
+      {:else}
+        <div class="surface rounded-lg p-5">
+          {@html renderSummary(summary)}
+        </div>
+        <button class="btn-ghost text-xs mt-2" on:click={() => (summary = '')}>regenerate</button>
       {/if}
     </section>
   {/if}
