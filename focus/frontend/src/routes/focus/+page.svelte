@@ -11,6 +11,8 @@
   let durationSec = 1500;
   let timer = null;
   let running = false;
+  let elapsedBeforeRun = 0;
+  let runStartedAt = null;
   let endChimePlayed = false;
   let showContext = false;
 
@@ -49,16 +51,37 @@
     document.body.classList.remove('focus-mode');
   });
 
+  function tick() {
+    const segMs = runStartedAt ? Date.now() - runStartedAt : 0;
+    elapsed = Math.floor((elapsedBeforeRun + segMs) / 1000);
+    if (elapsed >= durationSec && !endChimePlayed) {
+      endChimePlayed = true;
+      playEnd();
+    }
+  }
+
   function start() {
     running = true;
-    const t0 = Date.now();
-    timer = setInterval(() => {
-      elapsed = Math.floor((Date.now() - t0) / 1000);
-      if (elapsed >= durationSec && !endChimePlayed) {
-        endChimePlayed = true;
-        playEnd();
-      }
-    }, 250);
+    runStartedAt = Date.now();
+    timer = setInterval(tick, 250);
+  }
+
+  function pause() {
+    if (!running) return;
+    elapsedBeforeRun += Date.now() - runStartedAt;
+    runStartedAt = null;
+    running = false;
+    if (timer) {
+      clearInterval(timer);
+      timer = null;
+    }
+  }
+
+  function resume() {
+    if (running) return;
+    runStartedAt = Date.now();
+    running = true;
+    timer = setInterval(tick, 250);
   }
 
   function playEnd() {
@@ -136,6 +159,11 @@
 
     <div class="mt-12 flex gap-3">
       <button class="btn" on:click={() => finish(false)}>stop early</button>
+      {#if running}
+        <button class="btn" on:click={pause}>pause</button>
+      {:else}
+        <button class="btn" on:click={resume}>resume</button>
+      {/if}
       <button class="btn-primary" on:click={() => finish(true)}>finish</button>
     </div>
 
@@ -149,7 +177,7 @@
     {/if}
 
     <p class="mt-4 text-xs text-ink-600 font-mono">
-      {overtime ? 'overtime — finish or stop' : 'screen will not sleep'}
+      {#if !running}paused{:else if overtime}overtime — finish or stop{:else}screen will not sleep{/if}
     </p>
   {/if}
 </div>
