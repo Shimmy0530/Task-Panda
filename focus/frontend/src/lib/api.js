@@ -1,6 +1,11 @@
 // Tiny fetch wrapper that always sends cookies and unwraps JSON.
 const base = '';
 
+// YYYY-MM-DD in the user's local TZ
+export function localToday() {
+  return new Date().toLocaleDateString('en-CA');
+}
+
 async function request(path, opts = {}) {
   const res = await fetch(`${base}${path}`, {
     credentials: 'include',
@@ -31,7 +36,7 @@ export const auth = {
 };
 
 export const tasks = {
-  list: (day) => api.get(`/api/tasks${day ? `?day=${day}` : ''}`),
+  list: (day) => api.get(`/api/tasks?day=${day || localToday()}`),
   get: (id) => api.get(`/api/tasks/${id}`),
   create: (t) => api.post('/api/tasks', t),
   update: (id, patch) => api.patch(`/api/tasks/${id}`, patch),
@@ -57,11 +62,6 @@ export const captures = {
 export const llm = {
   firstAction: (title, notes) => api.post('/api/llm/first-action', { title, notes })
 };
-
-// YYYY-MM-DD in the user's local TZ
-export function localToday() {
-  return new Date().toLocaleDateString('en-CA');
-}
 
 export const morning = {
   state: (today) => api.get(`/api/morning/state?today=${today}`),
