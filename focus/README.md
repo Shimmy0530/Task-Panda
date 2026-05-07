@@ -14,7 +14,7 @@ No SMTP, no external auth dependencies. The only outbound calls the backend code
 
 ## ⚠️ OPSEC — read first
 
-You are a federal employee. This tool is on a personally-owned VM and audio passes through Groq.
+This tool runs on a personally-owned VM and audio passes through Groq during dictation. Treat anything you type or speak into it as material that could leak.
 
 - **No case data anywhere.** Not in task titles, capture, or dictation.
 - **Abstractions only:** ✅ `"Q3 inspection report"` ❌ `"HM Pharmacy Winnetka writeup"`.
@@ -76,7 +76,7 @@ sudo nginx -t && sudo systemctl reload nginx
 git push
 
 # chemex
-ssh chemex 'cd ~/focusly && git pull && cd focus && docker compose up -d --build'
+ssh <chemex-alias> 'cd ~/focusly && git pull && cd focus && docker compose up -d --build'
 ```
 
 Backend-only edits: append `backend` to the compose command to skip the svelte build.

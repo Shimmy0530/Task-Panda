@@ -16,7 +16,7 @@ Treat `focus/` as the project root for almost all work.
 
 The README references Caddy and Let's Encrypt — that path was abandoned. Production uses host nginx on chemex with a Cloudflare Origin wildcard cert. When editing deployment, update both files together.
 
-- **Host:** chemex.baltito.com (35.202.245.176), Ubuntu, user `<deploy-user>`. SSH alias: `chemex`.
+- **Host:** chemex.baltito.com (35.202.245.176), Ubuntu, user `<deploy-user>`. SSH alias varies by machine — check `~/.ssh/config` (e.g. `chemex-srv` on the primary workstation).
 - **Public URL:** `https://focus.baltito.com` (Cloudflare proxy ON).
 - **Cert:** `/etc/ssl/cloudflare/chemex.baltito.com.{pem,key}` is a `*.baltito.com` wildcard valid until 2041 — **no certbot dance for new subdomains on chemex**.
 - **Container ports:** backend at `127.0.0.1:17840` (→ container `:8000`), frontend at `127.0.0.1:17841` (→ container `:3000`). nginx splits `/api/*` to backend, everything else to frontend.
@@ -32,13 +32,13 @@ The repo is cloned at `~/focusly` on chemex (private repo `Shimmy0530/focusly`, 
 git push
 
 # chemex
-ssh chemex 'cd ~/focusly && git pull && cd focus && docker compose up -d --build'
+ssh <chemex-alias> 'cd ~/focusly && git pull && cd focus && docker compose up -d --build'
 ```
 
 For backend-only changes, append `backend` to the compose command to skip the slow svelte build:
 
 ```bash
-ssh chemex 'cd ~/focusly && git pull && cd focus && docker compose up -d --build backend'
+ssh <chemex-alias> 'cd ~/focusly && git pull && cd focus && docker compose up -d --build backend'
 ```
 
 `~/focus.bak` on chemex is the legacy scp-tarball deploy preserved during cutover — safe to `rm -rf` once you trust the new layout.
@@ -125,6 +125,6 @@ To swap providers, edit `LLM_BASE_URL`/`LLM_MODEL`/`LLM_API_KEY` in `.env`. Whis
 
 ## OPSEC rules (from owner; load-bearing)
 
-The owner is a federal agent. **Never put case data anywhere in this app** — task titles, captures, dictation transcripts. The `SYSTEM_OUTLINE` prompt in `llm.py` actively redacts case-like identifiers (names, locations, dates, case refs) into `[SUBJECT]`/`[LOCATION]`/`[DATE]`/`[CASE_REF]` placeholders. Preserve that behavior when editing the prompt — don't relax it.
+The owner works with sensitive third-party subject material. **Never put case data anywhere in this app** — task titles, captures, dictation transcripts. The `SYSTEM_OUTLINE` prompt in `llm.py` actively redacts case-like identifiers (names, locations, dates, case refs) into `[SUBJECT]`/`[LOCATION]`/`[DATE]`/`[CASE_REF]` placeholders. Preserve that behavior when editing the prompt — don't relax it.
 
 The backend container's only outbound network destination is `api.groq.com` (per design, not enforced). Audio leaves the user's infra during transcription; the README's OPSEC notice treats dictation as the highest-risk surface.
