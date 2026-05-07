@@ -33,7 +33,7 @@ The README references Caddy and Let's Encrypt — that path was abandoned. Produ
 
 ### Redeploy
 
-The repo is cloned at `~/focusly` on chemex (private repo `Shimmy0530/focusly`, gh CLI is the credential helper). The runtime `.env` is **not** in git — it lives only at `~/focusly/focus/.env` on chemex (perms 600). The SQLite DB is at `~/focusly/focus/data/focus.db` (also untracked).
+The repo is cloned at `~/focusly` on chemex (private repo `Shimmy0530/Task-Panda` — directory name kept as `focusly` from the pre-rename clone; gh CLI is the credential helper). The runtime `.env` is **not** in git — it lives only at `~/focusly/focus/.env` on chemex (perms 600). The SQLite DB is at `~/focusly/focus/data/focus.db` (also untracked).
 
 ```bash
 # local
@@ -52,6 +52,10 @@ ssh <chemex-alias> 'cd ~/focusly && git pull && cd focus && docker compose up -d
 `~/focus.bak` on chemex is the legacy scp-tarball deploy preserved during cutover — safe to `rm -rf` once you trust the new layout.
 
 **Container-owned host paths:** anything the containers write (notably `~/focusly/focus/data/`) is owned by root on the host. Host-side `mv`/`rm`/`chown` needs `sudo`.
+
+### Merging PRs
+
+Default to `gh pr merge <N> --squash --delete-branch`. Squash keeps `main`'s log one-commit-per-feature, matching existing style. Avoid merge commits.
 
 ## Local dev
 
