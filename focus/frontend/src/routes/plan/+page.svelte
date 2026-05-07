@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
-  import { tasks as tasksApi, llm, sessions as sessionsApi, auth, localToday } from '$lib/api.js';
+  import { tasks as tasksApi, llm, sessions as sessionsApi, auth, morning, localToday } from '$lib/api.js';
 
   let items = [];
   let newTitle = '';
@@ -93,6 +93,12 @@
   async function startFocus(t, mins) {
     const s = await sessionsApi.start(t.id, mins * 60);
     goto(`/focus?session=${s.id}&task=${t.id}`);
+  }
+
+  async function redoMorning() {
+    if (!confirm('Redo the morning ritual? Today’s tasks stay; you can re-pick the frog and supporting tasks.')) return;
+    await morning.reset();
+    goto('/morning');
   }
 </script>
 
@@ -222,4 +228,10 @@
       {#if err}<p class="text-rust text-sm">{err}</p>{/if}
     </div>
   </section>
+
+  <footer class="pt-6 border-t border-ink-800 flex justify-end">
+    <button class="btn-ghost text-xs text-ink-600 hover:text-ink-300" on:click={redoMorning}>
+      redo morning ritual
+    </button>
+  </footer>
 </div>
