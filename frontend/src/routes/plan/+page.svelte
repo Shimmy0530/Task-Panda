@@ -463,29 +463,29 @@
 
   <footer class="pt-6 border-t border-ink-800 flex flex-wrap items-center justify-between gap-3">
     {#if backlogCount > 0}
-      <a class="text-xs text-ink-500 hover:text-ink-200 font-mono" href="/backlog">📦 backlog ({backlogCount})</a>
+      <a class="text-xs text-ink-300 hover:text-ink-100 font-mono" href="/backlog">📦 backlog ({backlogCount})</a>
     {:else}
-      <a class="text-xs text-ink-600 hover:text-ink-300 font-mono" href="/backlog">📦 backlog</a>
+      <a class="text-xs text-ink-400 hover:text-ink-100 font-mono" href="/backlog">📦 backlog</a>
     {/if}
-    <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-mono text-ink-600">
+    <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-mono text-ink-400">
       <span class="flex items-center gap-2">
         ☕ break
-        <a class="text-ink-500 hover:text-ink-200" href="/timer?mode=break&d=5">5</a>
-        <span class="text-ink-700">·</span>
-        <a class="text-ink-500 hover:text-ink-200" href="/timer?mode=break&d=10">10</a>
+        <a class="text-ink-300 hover:text-ink-100" href="/timer?mode=break&d=5">5</a>
+        <span class="text-ink-600">·</span>
+        <a class="text-ink-300 hover:text-ink-100" href="/timer?mode=break&d=10">10</a>
       </span>
       <span class="flex items-center gap-2">
         ⏱ timer
-        <a class="text-ink-500 hover:text-ink-200" href="/timer?d=10">10</a>
-        <span class="text-ink-700">·</span>
-        <a class="text-ink-500 hover:text-ink-200" href="/timer?d=15">15</a>
-        <span class="text-ink-700">·</span>
-        <a class="text-ink-500 hover:text-ink-200" href="/timer?d=25">25</a>
-        <span class="text-ink-700">·</span>
-        <a class="text-ink-500 hover:text-ink-200" href="/timer?d=50">50</a>
+        <a class="text-ink-300 hover:text-ink-100" href="/timer?d=10">10</a>
+        <span class="text-ink-600">·</span>
+        <a class="text-ink-300 hover:text-ink-100" href="/timer?d=15">15</a>
+        <span class="text-ink-600">·</span>
+        <a class="text-ink-300 hover:text-ink-100" href="/timer?d=25">25</a>
+        <span class="text-ink-600">·</span>
+        <a class="text-ink-300 hover:text-ink-100" href="/timer?d=50">50</a>
       </span>
     </div>
-    <button class="btn-ghost text-xs text-ink-600 hover:text-ink-300" on:click={redoMorning}>
+    <button class="btn-ghost text-xs text-ink-400 hover:text-ink-100" on:click={redoMorning}>
       redo morning ritual
     </button>
   </footer>
