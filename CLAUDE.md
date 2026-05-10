@@ -20,7 +20,7 @@ This file (`CLAUDE.md`) is committed to the public repo at github.com/Shimmy0530
 
 ## Naming: code vs. user-facing
 
-User-facing product name is **Task Panda**. Code identifiers, container names (`focus-frontend`/`focus-backend`), DB columns (`is_frog`), and cookie names stay unchanged — a deliberate rename pass is deferred. New UI strings, page titles, READMEs, and brand copy say "Task Panda." Don't refactor existing identifiers unless explicitly asked.
+User-facing product name is **Task Panda**. Container names are now `task-panda-backend` / `task-panda-frontend` (renamed in `docker-compose.yml` to match the product). Other code identifiers — Python/npm package names (`focus-backend` in `backend/pyproject.toml`, `focus-frontend` in `frontend/package.json`), DB columns (`is_frog`), cookie names — stay unchanged. New UI strings, page titles, READMEs, and brand copy say "Task Panda." Don't refactor remaining `focus`-named identifiers unless explicitly asked.
 
 ## Copy style (user-facing strings)
 

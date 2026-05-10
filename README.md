@@ -219,7 +219,7 @@ npm run dev                       # :5173
 
 ```bash
 # crontab on the server (db is bind-mounted at ./data/focus.db, mounted as /data inside the container)
-0 3 * * * docker exec focus-backend sqlite3 /data/focus.db ".backup /data/focus-$(date +\%F).db"
+0 3 * * * docker exec task-panda-backend sqlite3 /data/focus.db ".backup /data/focus-$(date +\%F).db"
 ```
 
 For local PC use the same command works pointing at your local `./data/`.

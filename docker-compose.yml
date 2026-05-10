@@ -3,7 +3,7 @@ name: task-panda
 services:
   backend:
     build: ./backend
-    container_name: focus-backend
+    container_name: task-panda-backend
     restart: unless-stopped
     env_file: .env
     volumes:
@@ -16,7 +16,7 @@ services:
 
   frontend:
     build: ./frontend
-    container_name: focus-frontend
+    container_name: task-panda-frontend
     restart: unless-stopped
     networks: [internal]
     ports:
