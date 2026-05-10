@@ -34,3 +34,6 @@ caddy_data/
 caddy_config/
 access.log
 analysis.md
+
+# Brand source files — exported variants live in focus/frontend/static/
+brand/
