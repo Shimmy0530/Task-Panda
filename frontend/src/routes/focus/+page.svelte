@@ -16,6 +16,7 @@
   let endChimePlayed = false;
   let showContext = false;
   let subErr = '';
+  let breakPrompt = false; // shown after the session has been ended
 
   // ADHD: variable reward — pick a different end tone each session
   const tones = [528, 432, 396, 639, 741];
@@ -105,10 +106,21 @@
   async function finish(completed) {
     if (!sessionId) return;
     if (timer) clearInterval(timer);
-    await sessionsApi.end(sessionId, completed);
-    if (completed) {
-      // Mark frog done? leave to user — show review
+    timer = null;
+    running = false;
+    if (sessionId !== 'ended') {
+      await sessionsApi.end(sessionId, completed);
+      sessionId = 'ended';
     }
+    breakPrompt = true;
+  }
+
+  async function takeBreak(mins) {
+    document.body.classList.remove('focus-mode');
+    goto(`/timer?mode=break&d=${mins}`);
+  }
+
+  async function backToPlan() {
     document.body.classList.remove('focus-mode');
     if (document.fullscreenElement) await document.exitFullscreen?.();
     goto('/plan');
@@ -196,15 +208,26 @@
       <div class="mt-8 text-ink-400 text-sm italic animate-pulse">{nudge}</div>
     {/if}
 
-    <div class="mt-12 flex gap-3">
-      <button class="btn" on:click={() => finish(false)}>stop early</button>
-      {#if running}
-        <button class="btn" on:click={pause}>pause</button>
-      {:else}
-        <button class="btn" on:click={resume}>resume</button>
-      {/if}
-      <button class="btn-primary" on:click={() => finish(true)}>finish</button>
-    </div>
+    {#if breakPrompt}
+      <div class="mt-12 flex flex-col items-center gap-3">
+        <p class="text-ink-300 text-sm">session ended. take a break?</p>
+        <div class="flex flex-wrap gap-3 justify-center">
+          <button class="btn-primary" on:click={() => takeBreak(5)}>5 min break</button>
+          <button class="btn" on:click={() => takeBreak(10)}>10 min break</button>
+          <button class="btn-ghost" on:click={backToPlan}>skip — back to plan</button>
+        </div>
+      </div>
+    {:else}
+      <div class="mt-12 flex gap-3">
+        <button class="btn" on:click={() => finish(false)}>stop early</button>
+        {#if running}
+          <button class="btn" on:click={pause}>pause</button>
+        {:else}
+          <button class="btn" on:click={resume}>resume</button>
+        {/if}
+        <button class="btn-primary" on:click={() => finish(true)}>finish</button>
+      </div>
+    {/if}
 
     {#if task.notes}
       <button

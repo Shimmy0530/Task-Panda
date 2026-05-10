@@ -341,7 +341,11 @@
             </div>
             <div class="flex items-center gap-1">
               {#if t.status !== 'done'}
-                <button class="btn-ghost text-xs" on:click={() => startFocus(t, 25)}>focus</button>
+                <span class="flex items-center font-mono text-[11px]">
+                  <button class="btn-ghost px-1.5" on:click={() => startFocus(t, 10)} title="focus 10 min">10</button>
+                  <button class="btn-ghost px-1.5" on:click={() => startFocus(t, 25)} title="focus 25 min">25</button>
+                  <button class="btn-ghost px-1.5" on:click={() => startFocus(t, 50)} title="focus 50 min">50</button>
+                </span>
                 <a class="btn-ghost text-xs" href="/dictate?task={t.id}" title="dictate">🎙</a>
                 {#if !hasFrog}
                   <button class="btn-ghost text-xs text-frog" on:click={() => makeFrog(t)}>→ frog</button>
@@ -375,12 +379,30 @@
     </div>
   </section>
 
-  <footer class="pt-6 border-t border-ink-800 flex items-center justify-between">
+  <footer class="pt-6 border-t border-ink-800 flex flex-wrap items-center justify-between gap-3">
     {#if backlogCount > 0}
       <a class="text-xs text-ink-500 hover:text-ink-200 font-mono" href="/backlog">📦 backlog ({backlogCount})</a>
     {:else}
       <a class="text-xs text-ink-600 hover:text-ink-300 font-mono" href="/backlog">📦 backlog</a>
     {/if}
+    <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-mono text-ink-600">
+      <span class="flex items-center gap-2">
+        ☕ break
+        <a class="text-ink-500 hover:text-ink-200" href="/timer?mode=break&d=5">5</a>
+        <span class="text-ink-700">·</span>
+        <a class="text-ink-500 hover:text-ink-200" href="/timer?mode=break&d=10">10</a>
+      </span>
+      <span class="flex items-center gap-2">
+        ⏱ timer
+        <a class="text-ink-500 hover:text-ink-200" href="/timer?d=10">10</a>
+        <span class="text-ink-700">·</span>
+        <a class="text-ink-500 hover:text-ink-200" href="/timer?d=15">15</a>
+        <span class="text-ink-700">·</span>
+        <a class="text-ink-500 hover:text-ink-200" href="/timer?d=25">25</a>
+        <span class="text-ink-700">·</span>
+        <a class="text-ink-500 hover:text-ink-200" href="/timer?d=50">50</a>
+      </span>
+    </div>
     <button class="btn-ghost text-xs text-ink-600 hover:text-ink-300" on:click={redoMorning}>
       redo morning ritual
     </button>
