@@ -9,6 +9,7 @@ The repository wraps the actual app at `focus/` plus deployment artifacts:
 - `focus/` — the SvelteKit + FastAPI app (single-user, self-hosted)
 - `focus.tar.gz` — original scaffold tarball (kept for reference; do not edit)
 - `.env` — **local staging only**, holds the Groq API key for one-time provisioning. Not used at runtime; `focus/.env` is the actual runtime config.
+- `brand/` — high-res logo source PNGs (gitignored). Re-export to `focus/frontend/static/` if the logo changes; the app loads PNG variants from there, not from `brand/`.
 
 Treat `focus/` as the project root for almost all work.
 
@@ -118,6 +119,15 @@ The voice flow is **two endpoints, not one**: the frontend uploads audio to `/ap
 ### Frontend
 
 `focus/frontend` is SvelteKit + Tailwind, built with `@sveltejs/adapter-node` (runs as `node build`). Routes mirror the URL structure 1:1 — pages live under `src/routes/<page>/+page.svelte`. All HTTP goes through `src/lib/api.js`, which always sends `credentials: 'include'` so the auth cookie travels. Same-origin via the nginx split, so CORS is a non-issue in production.
+
+#### Brand assets
+
+`focus/frontend/static/`:
+- `logo.png` — full lockup (raccoon + "Task Panda"), used as the login hero
+- `logo-mark.png` — raccoon mark only, used in the header (next to a "task panda" wordmark that hides on `<sm` screens)
+- `favicon.png`, `icon-192.png`, `icon-512.png` — browser tab + PWA icons (referenced from `manifest.json` and `app.html`)
+
+All transparent-background PNGs derived from `brand/TaskPandaLogoIdea2_*.png`. To regenerate after a logo change, resize the source PNGs into `static/` (any image tool works; the existing files were scaled with `System.Drawing` from PowerShell).
 
 #### Timezone discipline
 
