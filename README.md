@@ -159,6 +159,17 @@ Single-user, self-hosted. There's no signup flow, no multi-tenant model, no emai
 
 PRs welcome — see [`CONTRIBUTING.md`](CONTRIBUTING.md). The goal is to improve Task Panda for everyone who uses it.
 
+## Acknowledgements
+
+Task Panda is built with:
+
+- **Frontend:** [SvelteKit](https://kit.svelte.dev/), [Tailwind CSS](https://tailwindcss.com/), [Vite](https://vitejs.dev/)
+- **Backend:** [FastAPI](https://fastapi.tiangolo.com/), [SQLAlchemy](https://www.sqlalchemy.org/), [Pydantic](https://pydantic.dev/)
+- **Auth:** [bcrypt](https://github.com/pyca/bcrypt/), [pyotp](https://github.com/pyauth/pyotp), [python-jose](https://github.com/mpdavis/python-jose)
+- **LLM + voice:** [Groq](https://groq.com/) (OpenAI-compatible chat completions and Whisper)
+
+Each upstream project is licensed independently — see the dependency manifests for full attribution.
+
 ## License
 
 [AGPL-3.0](LICENSE).
