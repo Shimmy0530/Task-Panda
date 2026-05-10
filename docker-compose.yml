@@ -1,3 +1,5 @@
+name: task-panda
+
 services:
   backend:
     build: ./backend

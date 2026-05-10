@@ -78,6 +78,15 @@ npm run dev                      # binds :5173
 
 The backend cookie is set with `secure=True`, so the login flow does **not** work on plain HTTP (no localhost override). Local dev requires either a TLS-terminating proxy or a temporary code change — proxy through your deployed instance and iterate against prod, or run `docker compose up` locally and front it with self-signed TLS.
 
+### Local TLS overlay (recommended)
+
+The cleanest local-dev path mirrors the chemex nginx vhost in front of the same backend/frontend containers. Add two files (both gitignored, so they never reach the deploy host):
+
+- `docker-compose.override.yml` — adds a `caddy:2-alpine` service on the existing `internal` network, exposed on `127.0.0.1:<port>:443`, with `./Caddyfile.local` mounted at `/etc/caddy/Caddyfile`.
+- `Caddyfile.local` — `task-panda.localhost { tls internal }` plus the same `/api/*` → `backend:8000`, `/*` → `frontend:3000` split as `deploy/nginx.example.conf`.
+
+`task-panda.localhost` resolves to 127.0.0.1 in modern browsers (RFC 6761), so no hosts-file edit. Set `APP_BASE_URL=https://task-panda.localhost:<port>` in your local `.env`. First request: accept the browser cert warning once, or import Caddy's local CA from `/data/caddy/pki/authorities/local/root.crt` inside the container.
+
 There are no tests.
 
 ### Validating compose YAML locally

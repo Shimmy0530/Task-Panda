@@ -36,5 +36,10 @@ caddy_config/
 access.log
 analysis.md
 
+# Local dev TLS overlay — matches https://focus.baltito.com locally.
+# Lives only on the maintainer laptop; chemex pulls vanilla compose.
+docker-compose.override.yml
+Caddyfile.local
+
 # Brand source files — exported variants live in focus/frontend/static/
 brand/
