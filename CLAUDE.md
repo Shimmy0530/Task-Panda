@@ -4,14 +4,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repo shape
 
-The repository wraps the actual app at `focus/` plus deployment artifacts:
+The repository is the SvelteKit + FastAPI app, single-user and self-hosted, with deployment artifacts in-tree:
 
-- `focus/` — the SvelteKit + FastAPI app (single-user, self-hosted)
-- `focus.tar.gz` — original scaffold tarball (kept for reference; do not edit)
-- `.env` — **local staging only**, holds the Groq API key for one-time provisioning. Not used at runtime; `focus/.env` is the actual runtime config.
-- `brand/` — high-res logo source PNGs (gitignored). Re-export to `focus/frontend/static/` if the logo changes; the app loads PNG variants from there, not from `brand/`.
-
-Treat `focus/` as the project root for almost all work.
+- `backend/`, `frontend/` — the app
+- `deploy/` — nginx vhost template
+- `bin/` — interactive helper scripts (password hash, 2FA seed)
+- `docker-compose.yml` — backend + frontend stack (no proxy)
+- `.env` — runtime config (gitignored; lives only on the deploy host at perms 600)
+- `data/focus.db` — SQLite database (gitignored; bind-mounted into the backend container as `/data/focus.db`)
+- `brand/` — high-res logo source PNGs (gitignored). Re-export to `frontend/static/` if the logo changes; the app loads PNG variants from there, not from `brand/`.
 
 ## Maintainer-private notes
 
@@ -25,33 +26,33 @@ User-facing product name is **Task Panda**. Code identifiers, container names (`
 
 Plain, accessible framing only. Avoid productivity-nerd idioms in UI copy: "eat the frog," "MVP," "OKR," "kanban," "deep work," etc. The data layer keeps internal metaphors (`is_frog` column, 🐸 emoji) but user-facing strings should read in plain English: "the boring important one," "do first," etc.
 
-## Deployment shape (deviates from `focus/README.md`)
+## Deployment shape
 
-The README references Caddy and Let's Encrypt — that path was abandoned. Production runs behind host nginx with a TLS cert you supply (Cloudflare Origin, Let's Encrypt, or whatever fits). When editing deployment, update both files together.
+Production runs behind host nginx with a TLS cert you supply (Cloudflare Origin, Let's Encrypt, or whatever fits). Public `README.md` covers the user-facing setup; this file covers the *why* and the gotchas.
 
 - **Container ports:** backend at `127.0.0.1:17840` (→ container `:8000`), frontend at `127.0.0.1:17841` (→ container `:3000`). nginx splits `/api/*` to backend, everything else to frontend.
-- **nginx vhost:** `focus/deploy/nginx.example.conf` is a template — copy it, replace `server_name`, TLS paths, and Cloudflare origin allowlist (if any), then drop into `/etc/nginx/sites-available/...`. Use `listen 443 ssl http2;` syntax for nginx <1.25, or the `http2 on;` directive on newer versions.
-- **Compose stack** (`focus/docker-compose.yml`): just `backend` and `frontend`, no proxy. They share an `internal` docker network plus host loopback ports. SQLite DB lives in `./data/focus.db` (bind-mounted volume).
+- **nginx vhost:** `deploy/nginx.example.conf` is a template — copy it, replace `server_name`, TLS paths, and Cloudflare origin allowlist (if any), then drop into `/etc/nginx/sites-available/...`. Use `listen 443 ssl http2;` syntax for nginx <1.25, or the `http2 on;` directive on newer versions.
+- **Compose stack** (`docker-compose.yml`): just `backend` and `frontend`, no proxy. They share an `internal` docker network plus host loopback ports. SQLite DB lives in `./data/focus.db` (bind-mounted volume).
 
 ### Redeploy
 
-The runtime `.env` is **not** in git — it lives only on the deploy host (perms 600). The SQLite DB is at `<clone-path>/focus/data/focus.db` (also untracked).
+The runtime `.env` is **not** in git — it lives only on the deploy host (perms 600). The SQLite DB is at `<clone-path>/data/focus.db` (also untracked).
 
 ```bash
 # local
 git push
 
 # server (substitute your SSH alias and clone path)
-ssh <host> 'cd <clone-path> && git pull && cd focus && docker compose up -d --build'
+ssh <host> 'cd <clone-path> && git pull && docker compose up -d --build'
 ```
 
 For backend-only changes, append `backend` to the compose command to skip the slow svelte build:
 
 ```bash
-ssh <host> 'cd <clone-path> && git pull && cd focus && docker compose up -d --build backend'
+ssh <host> 'cd <clone-path> && git pull && docker compose up -d --build backend'
 ```
 
-**Container-owned host paths:** anything the containers write (notably `focus/data/`) is owned by root on the host. Host-side `mv`/`rm`/`chown` needs `sudo`.
+**Container-owned host paths:** anything the containers write (notably `data/`) is owned by root on the host. Host-side `mv`/`rm`/`chown` needs `sudo`.
 
 ### Merging PRs
 
@@ -61,14 +62,14 @@ Default to `gh pr merge <N> --squash --delete-branch`. Squash keeps `main`'s log
 
 ```bash
 # Backend
-cd focus/backend
+cd backend
 python -m venv .venv && source .venv/bin/activate
 pip install fastapi 'uvicorn[standard]' sqlalchemy pydantic pydantic-settings \
     'python-jose[cryptography]' httpx python-multipart bcrypt pyotp
 uvicorn app.main:app --reload   # binds :8000
 
 # Frontend
-cd focus/frontend
+cd ../frontend
 npm install
 npm run dev                      # binds :5173
 ```
@@ -77,9 +78,9 @@ The backend cookie is set with `secure=True`, so the login flow does **not** wor
 
 There are no tests.
 
-## Helper scripts (`focus/bin/`)
+## Helper scripts (`bin/`)
 
-`focus/.venv/` already has `bcrypt` and `pyotp` installed for these:
+`backend/.venv/` already has `bcrypt` and `pyotp` installed for these:
 
 - `bin/hash-password.py` — interactive prompt; prints `AUTH_PASSWORD_HASH='...'` line for `.env`. Single-quoting preserves `$` in the bcrypt hash.
 - `bin/setup-2fa.py` — prints `AUTH_TOTP_SECRET=...` plus an `otpauth://` URI for authenticator apps. **Run interactively** so the secret never enters the conversation transcript.
@@ -118,11 +119,11 @@ The voice flow is **two endpoints, not one**: the frontend uploads audio to `/ap
 
 ### Frontend
 
-`focus/frontend` is SvelteKit + Tailwind, built with `@sveltejs/adapter-node` (runs as `node build`). Routes mirror the URL structure 1:1 — pages live under `src/routes/<page>/+page.svelte`. All HTTP goes through `src/lib/api.js`, which always sends `credentials: 'include'` so the auth cookie travels. Same-origin via the nginx split, so CORS is a non-issue in production.
+`frontend/` is SvelteKit + Tailwind, built with `@sveltejs/adapter-node` (runs as `node build`). Routes mirror the URL structure 1:1 — pages live under `src/routes/<page>/+page.svelte`. All HTTP goes through `src/lib/api.js`, which always sends `credentials: 'include'` so the auth cookie travels. Same-origin via the nginx split, so CORS is a non-issue in production.
 
 #### Brand assets
 
-`focus/frontend/static/`:
+`frontend/static/`:
 - `logo.png` — full lockup (raccoon + "Task Panda"), used as the login hero
 - `logo-mark.png` — raccoon mark only, used in the header (next to a "task panda" wordmark that hides on `<sm` screens)
 - `favicon.png`, `icon-192.png`, `icon-512.png` — browser tab + PWA icons (referenced from `manifest.json` and `app.html`)
