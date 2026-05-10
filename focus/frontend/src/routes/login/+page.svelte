@@ -41,7 +41,13 @@
 </script>
 
 <div class="max-w-md mx-auto pt-24">
-  <h1 class="font-display text-5xl text-ink-100 tracking-tightest leading-none mb-3">focus.</h1>
+  <img
+    src="/logo.png"
+    alt="Task Panda"
+    class="w-56 mb-6 -ml-3"
+    width="480"
+    height="320"
+  />
   <p class="text-ink-400 mb-10 leading-relaxed">
     A quiet observatory for the work you keep avoiding.
   </p>

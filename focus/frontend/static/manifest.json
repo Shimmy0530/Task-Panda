@@ -1,6 +1,6 @@
 {
-  "name": "Focus",
-  "short_name": "Focus",
+  "name": "Task Panda",
+  "short_name": "Task Panda",
   "description": "A quiet observatory for the work you keep avoiding.",
   "start_url": "/plan",
   "display": "standalone",

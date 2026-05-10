@@ -40,7 +40,10 @@
   {#if user}
     <header class="border-b border-ink-700/60">
       <nav class="max-w-3xl mx-auto px-5 py-4 flex items-center gap-6 text-sm">
-        <a href="/" class="font-display text-lg tracking-tightest text-ink-100">focus</a>
+        <a href="/" class="flex items-center gap-2 text-ink-100" aria-label="Task Panda — home">
+          <img src="/logo-mark.png" alt="" class="h-7 w-7" width="28" height="28" />
+          <span class="font-display text-lg tracking-tightest hidden sm:inline">task panda</span>
+        </a>
         <a href="/plan" class="text-ink-400 hover:text-ink-100" class:!text-ink-100={$page.url.pathname.startsWith('/plan')}>plan</a>
         <a href="/focus" class="text-ink-400 hover:text-ink-100" class:!text-ink-100={$page.url.pathname.startsWith('/focus')}>focus</a>
         <a href="/dictate" class="text-ink-400 hover:text-ink-100" class:!text-ink-100={$page.url.pathname.startsWith('/dictate')}>dictate</a>
