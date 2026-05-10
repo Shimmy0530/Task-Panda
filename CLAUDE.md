@@ -78,6 +78,10 @@ The backend cookie is set with `secure=True`, so the login flow does **not** wor
 
 There are no tests.
 
+### Validating compose YAML locally
+
+`docker compose config` errors out if `.env` doesn't exist, even though it's not needed to validate the schema. To check `docker-compose.yml` without running anything: `cp .env.example .env && docker compose config && rm .env`.
+
 ## Helper scripts (`bin/`)
 
 `backend/.venv/` already has `bcrypt` and `pyotp` installed for these:
