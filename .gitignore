@@ -44,3 +44,4 @@ Caddyfile.local
 
 # Brand source files — exported variants live in focus/frontend/static/
 brand/
+.claude/skills/.skip

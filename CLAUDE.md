@@ -99,6 +99,7 @@ There are no tests.
 
 - `bin/hash-password.py` — interactive prompt; prints a bcrypt hash. The only legitimate use is recovering a locked-out admin: SSH in, generate a hash, and `sqlite3 data/focus.db "UPDATE users SET password_hash = '<hash>' WHERE username = '<admin>';"` directly. (The script's old `AUTH_PASSWORD_HASH=...` output line is now meaningless — the env var is gone — but the hash itself is still useful.)
 - `bin/setup-2fa.py` — prints a TOTP secret + `otpauth://` URI. Mostly vestigial now; kept for any future scripted enrollment. The in-app `/settings → 2fa` flow is the supported path.
+- `bin/reset-db.sh` — wipes the SQLite DB and restarts the backend; next page load shows the first-run signup. Local: `bin/reset-db.sh`. Remote: `bin/reset-db.sh --remote <ssh-alias>` (assumes `~/task-panda` and passwordless sudo). **Use this, not `sudo rm -f data/focus.db && docker compose up -d`** — the manual sequence can race during container Stopping and leave a 0-byte DB that `init_db()` opens but never populates. The script wraps the safe `stop → rm → up` order and verifies the four expected tables exist after restart.
 
 ## Architecture
 
@@ -133,7 +134,7 @@ Routers (`backend/app/routers/`):
 - `tasks.py` — CRUD plus `POST /api/tasks/{id}/dictation` (atomic dictation append), `POST /api/tasks/{id}/copy` (duplicate to today, subtasks reset to undone), `GET /api/tasks/backlog` (rows with `day_date IS NULL`)
 - `sessions.py` — pomodoro start/end + today/week dashboards
 - `morning.py` — `GET /state` and `POST /complete`/`/skip` for the ritual. State now also returns `stuck_yesterday`, `stale_backlog`, `backlog_top`, `stuck_threshold_days`. Complete accepts `pull_from_backlog`, `dropped_stale_ids`, `kept_stale_ids` and prunes done subtasks + bumps `carried_count` on carry.
-- `capture.py` — intrusive-thoughts inbox + `POST /api/llm/first-action`, `POST /api/llm/subtasks` (AI breakdown — staged, not persisted), `POST /api/llm/weekly-review?today=YYYY-MM-DD` (cached server-side per (user, client-local day) — `today` required, comes from `localToday()`)
+- `capture.py` — intrusive-thoughts inbox (`GET/POST /api/capture`, `PATCH /api/capture/{id}` to mark processed, `POST /api/capture/{id}/convert` to atomically create a Task from the capture and flip processed in one commit; reuses `_enforce_day_caps` from `routers/tasks.py` and bubbles its 400 so the UI can surface a "send to backlog?" pill) + `POST /api/llm/first-action`, `POST /api/llm/subtasks` (AI breakdown — staged, not persisted), `POST /api/llm/weekly-review?today=YYYY-MM-DD` (cached server-side per (user, client-local day) — `today` required, comes from `localToday()`)
 - `settings.py` — `GET/PATCH /api/settings`; currently exposes `stuck_threshold_days` (default 5)
 - `transcribe.py` — `POST /api/transcribe` (audio → text) and `POST /api/outline` (text → cleaned outline)
 
@@ -164,6 +165,7 @@ Server runs UTC. The frontend's "today" must always be browser-local. Any fronte
 - Morning ritual `complete` payload is the canonical way to plant a frog + supporting cast; it also processes yesterday's open tasks (`carry`/`drop`/`done`) and stamps `User.last_ritual_date`. "Carrying forward" demotes frog status — frogs must be re-chosen each day. Carry also prunes any done subtasks and increments `Task.carried_count` (used for stuck detection in next day's ritual).
 - Subtasks live as a JSON list `[{id, title, done}]` on `Task.subtasks` (cap 25 server-side). PATCH replaces the full list. Copying a task deep-copies subtasks with all `done=false`.
 - Dictation appends are atomic: `POST /api/tasks/{id}/dictation` reads `task.notes`, appends a `🎙 dictation · <UTC stamp>` block, commits once.
+- `Task.next_action` is the persisted "first move" suggestion (`VARCHAR(500)`, nullable). `PATCH /api/tasks/{id}` with `{"next_action": null}` clears it (mirrors the `day_date` clear pattern). Surfaced on `/plan` rows and above the timer on `/focus`.
 
 ### LLM + STT
 
