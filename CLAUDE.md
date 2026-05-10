@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repo shape
 
-The `focusly/` directory wraps the actual app at `focus/` plus deployment artifacts:
+The repository wraps the actual app at `focus/` plus deployment artifacts:
 
 - `focus/` — the SvelteKit + FastAPI app (single-user, self-hosted)
 - `focus.tar.gz` — original scaffold tarball (kept for reference; do not edit)
@@ -12,46 +12,45 @@ The `focusly/` directory wraps the actual app at `focus/` plus deployment artifa
 
 Treat `focus/` as the project root for almost all work.
 
+## Maintainer-private notes
+
+If `CLAUDE.local.md` exists alongside this file, read it for deployment-specific details (hostnames, SSH aliases, server paths) that don't belong in the public repo. It's gitignored — each maintainer keeps their own.
+
 ## Naming: code vs. user-facing
 
-User-facing product name is **Task Panda**. Code identifiers, repo path, container names (`focus-frontend`/`focus-backend`), subdomain (`focus.baltito.com`), DB columns (`is_frog`), and cookie names stay unchanged — a deliberate rename pass is deferred. New UI strings, page titles, READMEs, and brand copy say "Task Panda." Don't refactor existing identifiers unless explicitly asked.
+User-facing product name is **Task Panda**. Code identifiers, container names (`focus-frontend`/`focus-backend`), DB columns (`is_frog`), and cookie names stay unchanged — a deliberate rename pass is deferred. New UI strings, page titles, READMEs, and brand copy say "Task Panda." Don't refactor existing identifiers unless explicitly asked.
 
 ## Copy style (user-facing strings)
 
 Plain, accessible framing only. Avoid productivity-nerd idioms in UI copy: "eat the frog," "MVP," "OKR," "kanban," "deep work," etc. The data layer keeps internal metaphors (`is_frog` column, 🐸 emoji) but user-facing strings should read in plain English: "the boring important one," "do first," etc.
 
-## Deployment (deviates from `focus/README.md`)
+## Deployment shape (deviates from `focus/README.md`)
 
-The README references Caddy and Let's Encrypt — that path was abandoned. Production uses host nginx on chemex with a Cloudflare Origin wildcard cert. When editing deployment, update both files together.
+The README references Caddy and Let's Encrypt — that path was abandoned. Production runs behind host nginx with a TLS cert you supply (Cloudflare Origin, Let's Encrypt, or whatever fits). When editing deployment, update both files together.
 
-- **Host:** chemex.baltito.com (35.202.245.176), Ubuntu, user `<deploy-user>`. SSH alias varies by machine — check `~/.ssh/config` (e.g. `chemex-srv` on the primary workstation).
-- **Public URL:** `https://focus.baltito.com` (Cloudflare proxy ON).
-- **Cert:** `/etc/ssl/cloudflare/chemex.baltito.com.{pem,key}` is a `*.baltito.com` wildcard valid until 2041 — **no certbot dance for new subdomains on chemex**.
 - **Container ports:** backend at `127.0.0.1:17840` (→ container `:8000`), frontend at `127.0.0.1:17841` (→ container `:3000`). nginx splits `/api/*` to backend, everything else to frontend.
-- **nginx vhost source:** `focus/deploy/focus.baltito.com.nginx` is checked into the repo. Deployed at `/etc/nginx/sites-available/focus.baltito.com`. nginx on chemex is 1.22.1 — use `listen 443 ssl http2;` syntax, not the standalone `http2 on;` directive.
+- **nginx vhost:** `focus/deploy/nginx.example.conf` is a template — copy it, replace `server_name`, TLS paths, and Cloudflare origin allowlist (if any), then drop into `/etc/nginx/sites-available/...`. Use `listen 443 ssl http2;` syntax for nginx <1.25, or the `http2 on;` directive on newer versions.
 - **Compose stack** (`focus/docker-compose.yml`): just `backend` and `frontend`, no proxy. They share an `internal` docker network plus host loopback ports. SQLite DB lives in `./data/focus.db` (bind-mounted volume).
 
 ### Redeploy
 
-The repo is cloned at `~/focusly` on chemex (private repo `Shimmy0530/Task-Panda` — directory name kept as `focusly` from the pre-rename clone; gh CLI is the credential helper). The runtime `.env` is **not** in git — it lives only at `~/focusly/focus/.env` on chemex (perms 600). The SQLite DB is at `~/focusly/focus/data/focus.db` (also untracked).
+The runtime `.env` is **not** in git — it lives only on the deploy host (perms 600). The SQLite DB is at `<clone-path>/focus/data/focus.db` (also untracked).
 
 ```bash
 # local
 git push
 
-# chemex
-ssh <chemex-alias> 'cd ~/focusly && git pull && cd focus && docker compose up -d --build'
+# server (substitute your SSH alias and clone path)
+ssh <host> 'cd <clone-path> && git pull && cd focus && docker compose up -d --build'
 ```
 
 For backend-only changes, append `backend` to the compose command to skip the slow svelte build:
 
 ```bash
-ssh <chemex-alias> 'cd ~/focusly && git pull && cd focus && docker compose up -d --build backend'
+ssh <host> 'cd <clone-path> && git pull && cd focus && docker compose up -d --build backend'
 ```
 
-`~/focus.bak` on chemex is the legacy scp-tarball deploy preserved during cutover — safe to `rm -rf` once you trust the new layout.
-
-**Container-owned host paths:** anything the containers write (notably `~/focusly/focus/data/`) is owned by root on the host. Host-side `mv`/`rm`/`chown` needs `sudo`.
+**Container-owned host paths:** anything the containers write (notably `focus/data/`) is owned by root on the host. Host-side `mv`/`rm`/`chown` needs `sudo`.
 
 ### Merging PRs
 
@@ -73,7 +72,7 @@ npm install
 npm run dev                      # binds :5173
 ```
 
-The backend cookie is set with `secure=True`, so the login flow does **not** work on plain HTTP (no localhost override). Local dev requires either a TLS-terminating proxy or a temporary code change — proxy through `https://focus.baltito.com` and iterate against prod, or run `docker compose up` locally and front it with self-signed TLS.
+The backend cookie is set with `secure=True`, so the login flow does **not** work on plain HTTP (no localhost override). Local dev requires either a TLS-terminating proxy or a temporary code change — proxy through your deployed instance and iterate against prod, or run `docker compose up` locally and front it with self-signed TLS.
 
 There are no tests.
 

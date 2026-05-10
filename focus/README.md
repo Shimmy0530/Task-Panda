@@ -59,7 +59,7 @@ docker compose up -d --build
 
 # nginx vhost — copy the template, replace the server_name and cert paths,
 # then drop it in.
-cp deploy/*.nginx /tmp/task-panda.nginx
+cp deploy/nginx.example.conf /tmp/task-panda.nginx
 nano /tmp/task-panda.nginx   # set server_name + ssl_certificate paths
 sudo mv /tmp/task-panda.nginx /etc/nginx/sites-available/task-panda
 sudo ln -sf /etc/nginx/sites-available/task-panda /etc/nginx/sites-enabled/

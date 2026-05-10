@@ -28,6 +28,7 @@ data/
 
 # Claude Code local overrides
 .claude/settings.local.json
+CLAUDE.local.md
 
 # Stale Caddy paths from earlier scaffold
 caddy_data/
