@@ -16,7 +16,7 @@ The repository is the SvelteKit + FastAPI app, single-user and self-hosted, with
 
 ## Maintainer-private notes
 
-If `CLAUDE.local.md` exists alongside this file, read it for deployment-specific details (hostnames, SSH aliases, server paths) that don't belong in the public repo. It's gitignored — each maintainer keeps their own.
+This file (`CLAUDE.md`) is committed to the public repo at github.com/Shimmy0530/Task-Panda — anything written here is world-readable. For deployment specifics (hostnames, IPs, SSH aliases, server paths, runtime URLs), use the gitignored `CLAUDE.local.md` instead. Read `CLAUDE.local.md` if it exists.
 
 ## Naming: code vs. user-facing
 
@@ -57,6 +57,8 @@ ssh <host> 'cd <clone-path> && git pull && docker compose up -d --build backend'
 ### Merging PRs
 
 Default to `gh pr merge <N> --squash --delete-branch`. Squash keeps `main`'s log one-commit-per-feature, matching existing style. Avoid merge commits.
+
+Commits use DCO sign-off (`git commit -s`) — required by CONTRIBUTING.md, and applies to AI-assisted commits too. Per-repo `user.email` is set to a GitHub no-reply address so the maintainer's real email stays out of public history; don't override it.
 
 ## Local dev
 
