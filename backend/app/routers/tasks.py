@@ -151,7 +151,7 @@ def update_task(
             raise HTTPException(400, f"Too many subtasks (max {MAX_SUBTASKS}).")
         task.subtasks = subtasks
 
-    for field in ("title", "notes", "is_frog", "status", "effort"):
+    for field in ("title", "notes", "is_frog", "status", "effort", "next_action"):
         if field in data:
             setattr(task, field, data[field])
 

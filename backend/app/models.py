@@ -39,6 +39,7 @@ class Task(Base):
     subtasks: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
     effort: Mapped[str | None] = mapped_column(String(1), nullable=True)
     carried_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    next_action: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     sessions = relationship("Session", back_populates="task", cascade="all,delete")
 

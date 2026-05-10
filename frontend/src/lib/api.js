@@ -81,7 +81,8 @@ export const sessions = {
 export const captures = {
   list: () => api.get('/api/capture'),
   create: (content) => api.post('/api/capture', { content }),
-  process: (id) => api.patch(`/api/capture/${id}`)
+  process: (id) => api.patch(`/api/capture/${id}`),
+  convert: (id, target) => api.post(`/api/capture/${id}/convert`, { target })
 };
 
 export const llm = {

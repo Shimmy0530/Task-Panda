@@ -107,6 +107,34 @@
     }
   }
 
+  async function keepFirstAction(t) {
+    const action = firstActions[t.id];
+    if (!action || action.startsWith('(LLM error')) return;
+    try {
+      await tasksApi.update(t.id, { next_action: action });
+      delete firstActions[t.id];
+      firstActions = firstActions;
+      await load();
+    } catch (e) {
+      firstActions[t.id] = `(save failed: ${e.message})`;
+      firstActions = firstActions;
+    }
+  }
+
+  function dismissFirstAction(id) {
+    delete firstActions[id];
+    firstActions = firstActions;
+  }
+
+  async function clearNextAction(t) {
+    try {
+      await tasksApi.update(t.id, { next_action: null });
+      await load();
+    } catch (e) {
+      err = e.message;
+    }
+  }
+
   async function startFocus(t, mins) {
     const s = await sessionsApi.start(t.id, mins * 60);
     goto(`/focus?session=${s.id}&task=${t.id}`);
@@ -249,19 +277,42 @@
               </div>
             {/if}
 
+            {#if frog.next_action}
+              <div class="mt-3 border-l-2 border-frog pl-3 text-ink-200 text-sm flex items-start gap-2">
+                <span class="flex-1">{frog.next_action}</span>
+                <button
+                  class="btn-ghost text-xs text-ink-600 hover:text-rust"
+                  on:click={() => clearNextAction(frog)}
+                  aria-label="clear next move"
+                >✕</button>
+              </div>
+            {/if}
+
             {#if frog.status !== 'done'}
               <div class="mt-4 flex flex-wrap gap-2">
                 <button class="btn-primary" on:click={() => startFocus(frog, 25)}>start 25</button>
                 <button class="btn" on:click={() => startFocus(frog, 50)}>start 50</button>
                 <button class="btn" on:click={() => startFocus(frog, 10)}>just 10</button>
                 <a class="btn" href="/dictate?task={frog.id}">🎙 dictate</a>
-                <button class="btn-ghost" on:click={() => getFirstAction(frog)} disabled={loadingAction[frog.id]}>
-                  {loadingAction[frog.id] ? 'thinking…' : 'first move?'}
-                </button>
+                {#if !frog.next_action}
+                  <button class="btn-ghost" on:click={() => getFirstAction(frog)} disabled={loadingAction[frog.id]}>
+                    {loadingAction[frog.id] ? 'thinking…' : 'first move?'}
+                  </button>
+                {/if}
               </div>
-              {#if firstActions[frog.id]}
-                <div class="mt-3 border-l-2 border-frog pl-3 text-ink-200 text-sm italic">
-                  {firstActions[frog.id]}
+              {#if !frog.next_action && firstActions[frog.id]}
+                <div class="mt-3 border-l-2 border-frog pl-3 text-ink-200 text-sm italic flex items-start gap-2">
+                  <span class="flex-1">{firstActions[frog.id]}</span>
+                  {#if !firstActions[frog.id].startsWith('(')}
+                    <div class="flex gap-1">
+                      <button class="btn-ghost text-xs" on:click={() => keepFirstAction(frog)}>keep</button>
+                      <button
+                        class="btn-ghost text-xs text-ink-600"
+                        on:click={() => dismissFirstAction(frog.id)}
+                        aria-label="dismiss"
+                      >✕</button>
+                    </div>
+                  {/if}
                 </div>
               {/if}
             {/if}
@@ -310,7 +361,7 @@
                 >{effortLabel(t.effort)}</button>
               </div>
               {#if t.notes}<p class="text-ink-500 text-sm">{t.notes}</p>{/if}
-              <div class="mt-1">
+              <div class="mt-1 flex flex-wrap items-center gap-3">
                 {#if (t.subtasks || []).length > 0}
                   <button class="btn-ghost text-[11px]" on:click={() => toggleExpand(t)}>
                     ▸ {(t.subtasks || []).filter((s) => s.done).length}/{t.subtasks.length} subtasks
@@ -320,7 +371,38 @@
                     + break down
                   </button>
                 {/if}
+                {#if t.status !== 'done' && !t.next_action}
+                  <button
+                    class="btn-ghost text-[11px] text-ink-500"
+                    on:click={() => getFirstAction(t)}
+                    disabled={loadingAction[t.id]}
+                  >{loadingAction[t.id] ? 'thinking…' : 'first move?'}</button>
+                {/if}
               </div>
+              {#if t.next_action}
+                <div class="mt-2 border-l-2 border-frog pl-3 text-ink-200 text-sm flex items-start gap-2">
+                  <span class="flex-1">{t.next_action}</span>
+                  <button
+                    class="btn-ghost text-xs text-ink-600 hover:text-rust"
+                    on:click={() => clearNextAction(t)}
+                    aria-label="clear next move"
+                  >✕</button>
+                </div>
+              {:else if firstActions[t.id]}
+                <div class="mt-2 border-l-2 border-frog pl-3 text-ink-200 text-sm italic flex items-start gap-2">
+                  <span class="flex-1">{firstActions[t.id]}</span>
+                  {#if !firstActions[t.id].startsWith('(')}
+                    <div class="flex gap-1">
+                      <button class="btn-ghost text-xs" on:click={() => keepFirstAction(t)}>keep</button>
+                      <button
+                        class="btn-ghost text-xs text-ink-600"
+                        on:click={() => dismissFirstAction(t.id)}
+                        aria-label="dismiss"
+                      >✕</button>
+                    </div>
+                  {/if}
+                </div>
+              {/if}
               {#if expanded[t.id]}
                 <div class="mt-2 pl-2 border-l border-ink-700">
                   <Subtasks task={t} onChange={(st) => onSubtasksChange(t, st)} />

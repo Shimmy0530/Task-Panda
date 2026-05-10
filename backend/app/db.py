@@ -23,6 +23,7 @@ def init_db() -> None:
             "ALTER TABLE tasks ADD COLUMN subtasks TEXT DEFAULT '[]'",
             "ALTER TABLE tasks ADD COLUMN effort VARCHAR(1)",
             "ALTER TABLE tasks ADD COLUMN carried_count INTEGER DEFAULT 0",
+            "ALTER TABLE tasks ADD COLUMN next_action VARCHAR(500)",
             # Multi-user columns
             "ALTER TABLE users ADD COLUMN username VARCHAR(80)",
             "ALTER TABLE users ADD COLUMN password_hash VARCHAR(200)",

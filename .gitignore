@@ -35,6 +35,7 @@ caddy_data/
 caddy_config/
 access.log
 analysis.md
+adhd-enhancement-review.md
 
 # Local dev TLS overlay — matches https://focus.baltito.com locally.
 # Lives only on the maintainer laptop; chemex pulls vanilla compose.

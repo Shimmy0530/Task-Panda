@@ -68,6 +68,7 @@ class TaskUpdate(BaseModel):
     day_date: date | None = None  # explicit null = demote to backlog
     effort: EffortLevel | None = None
     subtasks: list[SubtaskItem] | None = None  # full-list replace
+    next_action: str | None = None  # explicit null = clear
 
     @model_validator(mode="after")
     def _no_frog_in_backlog(self):
@@ -93,6 +94,7 @@ class TaskOut(BaseModel):
     subtasks: list[SubtaskItem]
     effort: EffortLevel | None
     carried_count: int
+    next_action: str | None
 
     class Config:
         from_attributes = True
@@ -119,6 +121,10 @@ class CaptureCreate(BaseModel):
     content: str = Field(min_length=1, max_length=2000)
 
 
+class CaptureConvertRequest(BaseModel):
+    target: Literal["today", "backlog"]
+
+
 class CaptureOut(BaseModel):
     id: int
     content: str
@@ -127,6 +133,11 @@ class CaptureOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class CaptureConvertResponse(BaseModel):
+    task: TaskOut
+    capture: CaptureOut
 
 
 class FirstActionRequest(BaseModel):

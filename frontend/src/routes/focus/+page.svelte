@@ -168,6 +168,12 @@
       {task.title}
     </h1>
 
+    {#if task.next_action}
+      <p class="mt-4 text-ink-300 text-base text-center max-w-xl">
+        next move · <span class="text-ink-100">{task.next_action}</span>
+      </p>
+    {/if}
+
     <div
       class="font-mono text-[18vw] md:text-[14vw] leading-none mt-12 tabular-nums tracking-tighter"
       class:text-frog={overtime}

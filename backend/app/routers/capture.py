@@ -10,12 +10,15 @@ from ..db import get_db
 from ..llm import first_action, subtasks_from_task, weekly_review
 from ..models import Capture, Session as FocusSession, Task, User
 from ..schemas import (
+    CaptureConvertRequest,
+    CaptureConvertResponse,
     CaptureCreate,
     CaptureOut,
     FirstActionRequest,
     FirstActionResponse,
     SubtaskItem,
 )
+from .tasks import _enforce_day_caps
 
 capture_router = APIRouter(prefix="/api/capture", tags=["capture"])
 llm_router = APIRouter(prefix="/api/llm", tags=["llm"])
@@ -59,6 +62,47 @@ def mark_processed(
     db.commit()
     db.refresh(c)
     return c
+
+
+@capture_router.post("/{cap_id}/convert", response_model=CaptureConvertResponse)
+def convert_capture(
+    cap_id: int,
+    payload: CaptureConvertRequest,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    capture = (
+        db.query(Capture)
+        .filter(Capture.id == cap_id, Capture.user_id == user.id)
+        .first()
+    )
+    if not capture:
+        raise HTTPException(404, "Not found")
+    if capture.processed:
+        raise HTTPException(409, "Already processed")
+
+    target_day = Date.today() if payload.target == "today" else None
+    if target_day is not None:
+        _enforce_day_caps(db, user, target_day, is_frog_target=False)
+
+    content = capture.content.strip()
+    title = content[:200]
+    notes = content if len(content) > 200 else None
+
+    task = Task(
+        user_id=user.id,
+        title=title,
+        notes=notes,
+        is_frog=False,
+        day_date=target_day,
+        subtasks=[],
+    )
+    db.add(task)
+    capture.processed = True
+    db.commit()
+    db.refresh(task)
+    db.refresh(capture)
+    return {"task": task, "capture": capture}
 
 
 @llm_router.post("/first-action", response_model=FirstActionResponse)
