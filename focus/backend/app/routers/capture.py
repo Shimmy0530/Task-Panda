@@ -112,10 +112,10 @@ class WeeklyReviewResponse(BaseModel):
 
 @llm_router.post("/weekly-review", response_model=WeeklyReviewResponse)
 async def weekly_review_endpoint(
+    today: Date,
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    today = Date.today()
     cache_key = (user.id, today.isoformat())
     cached = _WEEKLY_CACHE.get(cache_key)
     if cached:

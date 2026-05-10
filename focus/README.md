@@ -1,6 +1,6 @@
-# Focus
+# Task Panda
 
-A quiet, ADHD-aware focus tool. Self-hosted, single-user, accessed at `https://focus.baltito.com`.
+A quiet, ADHD-aware focus tool. Self-hosted, single-user.
 
 ## Architecture
 
@@ -8,7 +8,7 @@ A quiet, ADHD-aware focus tool. Self-hosted, single-user, accessed at `https://f
 - **Backend:** FastAPI + SQLAlchemy + SQLite
 - **Auth:** Password (bcrypt) + optional TOTP 2FA. JWT cookie session.
 - **LLM + STT:** Groq via OpenAI-compatible API
-- **Reverse proxy:** host nginx (see `deploy/focus.baltito.com.nginx`), TLS via Cloudflare Origin wildcard cert
+- **Reverse proxy:** host nginx (template in `deploy/`), TLS via your own cert (Cloudflare Origin, Let's Encrypt, etc.)
 
 No SMTP, no external auth dependencies. The only outbound calls the backend code makes are to the configured `LLM_BASE_URL` (Groq by default).
 
@@ -38,25 +38,31 @@ perl -i -pe "s|^JWT_SECRET=.*|JWT_SECRET=$JWT|" .env && unset JWT
 nano .env
 ```
 
-## Deploy (chemex)
+## Deploy
 
-DNS: A record `focus.baltito.com` → `35.202.245.176` (Cloudflare proxy ON). Containers bind `127.0.0.1:17840` (backend) and `127.0.0.1:17841` (frontend) — the host nginx fronts them on `:443`.
+The compose stack runs just `backend` and `frontend`. The backend binds `127.0.0.1:17840` and the frontend binds `127.0.0.1:17841` on the host — a host nginx fronts them on `:443`.
+
+DNS: point your chosen hostname at the server's public IP. If you proxy through Cloudflare, Origin certs work without certbot.
 
 ### One-time setup
 
+On the server:
+
 ```bash
-# On chemex:
-gh auth login   # if not already (https, gh as credential helper)
-cd ~ && git clone https://github.com/Shimmy0530/focusly.git
-cd ~/focusly/focus
+gh auth login   # if cloning a private repo
+git clone <your-repo-url> ~/task-panda
+cd ~/task-panda/focus
 nano .env       # paste runtime secrets — see "First-time setup" above
 chmod 600 .env
 
 docker compose up -d --build
 
-# nginx vhost — wildcard cert at /etc/ssl/cloudflare/ already covers focus.baltito.com
-sudo cp deploy/focus.baltito.com.nginx /etc/nginx/sites-available/focus.baltito.com
-sudo ln -sf /etc/nginx/sites-available/focus.baltito.com /etc/nginx/sites-enabled/
+# nginx vhost — copy the template, replace the server_name and cert paths,
+# then drop it in.
+cp deploy/*.nginx /tmp/task-panda.nginx
+nano /tmp/task-panda.nginx   # set server_name + ssl_certificate paths
+sudo mv /tmp/task-panda.nginx /etc/nginx/sites-available/task-panda
+sudo ln -sf /etc/nginx/sites-available/task-panda /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
@@ -66,8 +72,8 @@ sudo nginx -t && sudo systemctl reload nginx
 # local
 git push
 
-# chemex
-ssh <chemex-alias> 'cd ~/focusly && git pull && cd focus && docker compose up -d --build'
+# server
+ssh <server> 'cd ~/task-panda && git pull && cd focus && docker compose up -d --build'
 ```
 
 Backend-only edits: append `backend` to the compose command to skip the svelte build.
@@ -93,13 +99,13 @@ npm run dev                       # :5173
 | Route | Purpose |
 |---|---|
 | `/login` | Password (+ optional 2FA) |
-| `/morning` | Guided ritual: handle yesterday's open work, name the frog, pick up to two more, optionally pull from backlog, hygiene-prompt 30+ day stale items |
-| `/plan` | Today's tasks (max 5, exactly one frog). Inline subtasks (manual + AI breakdown), S/M/L effort chip, copy-task, footer link to backlog |
+| `/morning` | Guided ritual: handle yesterday's open work, name the boring important one, pick up to two more, optionally pull from backlog, hygiene-prompt 30+ day stale items |
+| `/plan` | Today's tasks (max 5, exactly one boring important one). Inline subtasks (manual + AI breakdown), S/M/L effort chip, copy-task, footer link to backlog |
 | `/backlog` | Things that aren't for today (`day_date IS NULL`). Doesn't count against the day cap. `→ today` graduates a row (subject to cap) |
 | `/focus?session=…&task=…` | Fullscreen pomodoro with wake-lock + context overlay; subtask checklist ticks live |
 | `/dictate?task=<id>` | Record → Groq Whisper → LLM outline → save to task |
 | `/capture` | Inbox of intrusive thoughts (`⌘.` from anywhere) |
-| `/review` | Daily + 7-day frog ratio + AI weekly summary (cached server-side per day) |
+| `/review` | Daily + 7-day ratio + AI weekly summary (cached server-side per day) |
 | `/settings` | Stuck-task threshold (default 5 days) |
 
 ## Hotkeys
@@ -111,7 +117,7 @@ npm run dev                       # :5173
 ## Backups
 
 ```bash
-# crontab on chemex (db lives at ~/focusly/focus/data/focus.db, mounted as /data in the container)
+# crontab on the server (db lives at ~/task-panda/focus/data/focus.db, mounted as /data in the container)
 0 3 * * * docker exec focus-backend sqlite3 /data/focus.db ".backup /data/focus-$(date +\%F).db"
 ```
 
@@ -140,5 +146,5 @@ If splitting LLM and STT across vendors with separate keys, fork `backend/app/ll
 
 - [ ] Push notifications for body-double check-ins
 - [ ] Streak with weekly forgiveness
-- [ ] Optional `frog` CLI for personal Mac
+- [ ] Optional CLI for personal Mac
 - [ ] Per-month avoidance heatmap

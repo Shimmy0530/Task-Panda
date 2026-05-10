@@ -110,7 +110,7 @@ Routers (`backend/app/routers/`):
 - `tasks.py` — CRUD plus `POST /api/tasks/{id}/dictation` (atomic dictation append), `POST /api/tasks/{id}/copy` (duplicate to today, subtasks reset to undone), `GET /api/tasks/backlog` (rows with `day_date IS NULL`)
 - `sessions.py` — pomodoro start/end + today/week dashboards
 - `morning.py` — `GET /state` and `POST /complete`/`/skip` for the ritual. State now also returns `stuck_yesterday`, `stale_backlog`, `backlog_top`, `stuck_threshold_days`. Complete accepts `pull_from_backlog`, `dropped_stale_ids`, `kept_stale_ids` and prunes done subtasks + bumps `carried_count` on carry.
-- `capture.py` — intrusive-thoughts inbox + `POST /api/llm/first-action`, `POST /api/llm/subtasks` (AI breakdown — staged, not persisted), `POST /api/llm/weekly-review` (cached server-side per (user, day))
+- `capture.py` — intrusive-thoughts inbox + `POST /api/llm/first-action`, `POST /api/llm/subtasks` (AI breakdown — staged, not persisted), `POST /api/llm/weekly-review?today=YYYY-MM-DD` (cached server-side per (user, client-local day) — `today` required, comes from `localToday()`)
 - `settings.py` — `GET/PATCH /api/settings`; currently exposes `stuck_threshold_days` (default 5)
 - `transcribe.py` — `POST /api/transcribe` (audio → text) and `POST /api/outline` (text → cleaned outline)
 

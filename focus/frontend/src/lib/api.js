@@ -64,7 +64,7 @@ export const captures = {
 export const llm = {
   firstAction: (title, notes) => api.post('/api/llm/first-action', { title, notes }),
   subtasks: (task_id) => api.post('/api/llm/subtasks', { task_id }),
-  weeklyReview: () => api.post('/api/llm/weekly-review')
+  weeklyReview: (today) => api.post(`/api/llm/weekly-review?today=${today || localToday()}`)
 };
 
 export const morning = {
