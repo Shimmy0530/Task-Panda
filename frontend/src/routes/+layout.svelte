@@ -4,28 +4,41 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import { auth, captures } from '$lib/api.js';
+  import { user } from '$lib/stores.js';
 
-  let user = null;
   let showCapture = false;
   let captureText = '';
+  let menuOpen = false;
 
   onMount(async () => {
     try {
-      user = await auth.me();
+      user.set(await auth.me());
     } catch {
+      user.set(null);
       if (!$page.url.pathname.startsWith('/login')) goto('/login');
     }
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener('click', onWindowClick);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('click', onWindowClick);
+    };
   });
 
   function onKey(e) {
-    // Cmd/Ctrl + . opens capture from anywhere
     if ((e.metaKey || e.ctrlKey) && e.key === '.') {
       e.preventDefault();
       showCapture = true;
     }
-    if (e.key === 'Escape' && showCapture) showCapture = false;
+    if (e.key === 'Escape') {
+      if (showCapture) showCapture = false;
+      if (menuOpen) menuOpen = false;
+    }
+  }
+
+  function onWindowClick(e) {
+    if (!menuOpen) return;
+    if (!e.target.closest('[data-user-menu]')) menuOpen = false;
   }
 
   async function saveCapture() {
@@ -34,10 +47,19 @@
     captureText = '';
     showCapture = false;
   }
+
+  async function signOut() {
+    menuOpen = false;
+    try {
+      await auth.logout();
+    } catch {}
+    user.set(null);
+    goto('/login');
+  }
 </script>
 
 <div class="min-h-dvh">
-  {#if user}
+  {#if $user}
     <header class="border-b border-ink-700/60">
       <nav class="max-w-3xl mx-auto px-5 py-4 flex items-center gap-6 text-sm">
         <a href="/" class="flex items-center gap-2 text-ink-100" aria-label="Task Panda — home">
@@ -50,7 +72,46 @@
         <a href="/capture" class="text-ink-400 hover:text-ink-100" class:!text-ink-100={$page.url.pathname.startsWith('/capture')}>inbox</a>
         <a href="/review" class="text-ink-400 hover:text-ink-100" class:!text-ink-100={$page.url.pathname.startsWith('/review')}>review</a>
         <a href="/settings" class="text-ink-400 hover:text-ink-100" class:!text-ink-100={$page.url.pathname.startsWith('/settings')}>settings</a>
-        <span class="ml-auto text-ink-500 font-mono text-xs hidden sm:block">⌘ . capture</span>
+
+        <div class="ml-auto flex items-center gap-4">
+          <span class="text-ink-500 font-mono text-xs hidden sm:block">⌘ . capture</span>
+          <div class="relative" data-user-menu>
+            <button
+              class="flex items-center gap-1 text-ink-400 hover:text-ink-100 font-mono text-xs"
+              on:click|stopPropagation={() => (menuOpen = !menuOpen)}
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+            >
+              <span>{$user.username}</span>
+              <span class="text-ink-600">▾</span>
+            </button>
+            {#if menuOpen}
+              <div class="absolute right-0 mt-2 w-44 surface rounded-md py-2 z-40 shadow-lg" role="menu">
+                <a
+                  href="/settings#security"
+                  class="block px-3 py-1.5 text-xs text-ink-300 hover:text-ink-100 hover:bg-ink-800/60"
+                  on:click={() => (menuOpen = false)}
+                >change password</a>
+                <a
+                  href="/settings#totp"
+                  class="block px-3 py-1.5 text-xs text-ink-300 hover:text-ink-100 hover:bg-ink-800/60"
+                  on:click={() => (menuOpen = false)}
+                >authenticator</a>
+                {#if $user.is_admin}
+                  <a
+                    href="/admin"
+                    class="block px-3 py-1.5 text-xs text-ink-300 hover:text-ink-100 hover:bg-ink-800/60"
+                    on:click={() => (menuOpen = false)}
+                  >admin</a>
+                {/if}
+                <button
+                  class="block w-full text-left px-3 py-1.5 text-xs text-rust hover:bg-ink-800/60"
+                  on:click={signOut}
+                >sign out</button>
+              </div>
+            {/if}
+          </div>
+        </div>
       </nav>
     </header>
   {/if}

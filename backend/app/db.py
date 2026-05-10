@@ -3,9 +3,7 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import sessionmaker, Session as OrmSession
 
 from .config import settings
-from .models import Base, User
-
-OWNER_ID = 1
+from .models import Base
 
 engine = create_engine(
     settings.DATABASE_URL,
@@ -19,34 +17,24 @@ def init_db() -> None:
 
     # Idempotent additive migrations
     with engine.begin() as conn:
-        try:
-            conn.execute(text("ALTER TABLE users ADD COLUMN last_ritual_date DATE"))
-        except OperationalError:
-            pass
-        try:
-            conn.execute(text("ALTER TABLE users ADD COLUMN stuck_threshold_days INTEGER DEFAULT 5"))
-        except OperationalError:
-            pass
-        try:
-            conn.execute(text("ALTER TABLE tasks ADD COLUMN subtasks TEXT DEFAULT '[]'"))
-        except OperationalError:
-            pass
-        try:
-            conn.execute(text("ALTER TABLE tasks ADD COLUMN effort VARCHAR(1)"))
-        except OperationalError:
-            pass
-        try:
-            conn.execute(text("ALTER TABLE tasks ADD COLUMN carried_count INTEGER DEFAULT 0"))
-        except OperationalError:
-            pass
-
-    # Bootstrap single owner
-    with SessionLocal() as db:
-        owner = db.get(User, OWNER_ID)
-        if not owner:
-            owner = User(id=OWNER_ID)
-            db.add(owner)
-            db.commit()
+        for ddl in [
+            "ALTER TABLE users ADD COLUMN last_ritual_date DATE",
+            "ALTER TABLE users ADD COLUMN stuck_threshold_days INTEGER DEFAULT 5",
+            "ALTER TABLE tasks ADD COLUMN subtasks TEXT DEFAULT '[]'",
+            "ALTER TABLE tasks ADD COLUMN effort VARCHAR(1)",
+            "ALTER TABLE tasks ADD COLUMN carried_count INTEGER DEFAULT 0",
+            # Multi-user columns
+            "ALTER TABLE users ADD COLUMN username VARCHAR(80)",
+            "ALTER TABLE users ADD COLUMN password_hash VARCHAR(200)",
+            "ALTER TABLE users ADD COLUMN totp_secret VARCHAR(64)",
+            "ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE users ADD COLUMN disabled_at DATETIME",
+            "CREATE UNIQUE INDEX IF NOT EXISTS ix_users_username ON users (username)",
+        ]:
+            try:
+                conn.execute(text(ddl))
+            except OperationalError:
+                pass
 
 
 def get_db():

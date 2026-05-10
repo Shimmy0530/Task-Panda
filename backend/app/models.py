@@ -10,12 +10,19 @@ class Base(DeclarativeBase):
 
 
 class User(Base):
-    """Single owner. Bootstrapped at startup."""
     __tablename__ = "users"
     id: Mapped[int] = mapped_column(primary_key=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     last_ritual_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     stuck_threshold_days: Mapped[int] = mapped_column(Integer, default=5, nullable=False)
+
+    username: Mapped[str] = mapped_column(
+        String(80), unique=True, index=True, nullable=False
+    )
+    password_hash: Mapped[str] = mapped_column(String(200), nullable=False)
+    totp_secret: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    is_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    disabled_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
 class Task(Base):

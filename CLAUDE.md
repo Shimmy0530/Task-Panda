@@ -95,34 +95,41 @@ There are no tests.
 
 ## Helper scripts (`bin/`)
 
-`backend/.venv/` already has `bcrypt` and `pyotp` installed for these:
+`backend/.venv/` already has `bcrypt` and `pyotp` installed for these. They are **emergency-only** now — there is no env-var bootstrap and TOTP/password rotation happens in-app via `/settings`. New accounts come from `/admin`.
 
-- `bin/hash-password.py` — interactive prompt; prints `AUTH_PASSWORD_HASH='...'` line for `.env`. Single-quoting preserves `$` in the bcrypt hash.
-- `bin/setup-2fa.py` — prints `AUTH_TOTP_SECRET=...` plus an `otpauth://` URI for authenticator apps. **Run interactively** so the secret never enters the conversation transcript.
+- `bin/hash-password.py` — interactive prompt; prints a bcrypt hash. The only legitimate use is recovering a locked-out admin: SSH in, generate a hash, and `sqlite3 data/focus.db "UPDATE users SET password_hash = '<hash>' WHERE username = '<admin>';"` directly. (The script's old `AUTH_PASSWORD_HASH=...` output line is now meaningless — the env var is gone — but the hash itself is still useful.)
+- `bin/setup-2fa.py` — prints a TOTP secret + `otpauth://` URI. Mostly vestigial now; kept for any future scripted enrollment. The in-app `/settings → 2fa` flow is the supported path.
 
 ## Architecture
 
-### Single-owner model
+### Multi-user model
 
-There is exactly one user (`OWNER_ID = 1`, hardcoded in `backend/app/db.py`). `init_db()` runs on FastAPI lifespan startup and idempotently creates the schema, runs additive `ALTER TABLE` migrations (errors swallowed via `OperationalError`), and bootstraps the owner row. Alembic is staged (`alembic.ini`, empty `versions/`) but unused — **add new schema with `ALTER TABLE` in `init_db()`** until the project graduates to alembic.
+No env-var auth bootstrap. `init_db()` only creates the schema and runs additive `ALTER TABLE` migrations (errors swallowed via `OperationalError`); it does **not** auto-create any user. On a fresh install the users table is empty until `POST /api/auth/setup` runs. That endpoint is gated by `db.query(User).count() == 0` and only succeeds when the table is empty — first sign-up becomes admin, and the gate slams shut. `GET /api/auth/setup-required` is the public probe the login page uses to decide whether to render its signup variant.
 
-There is no signup, no email, no password reset endpoint. To rotate the password: regenerate `AUTH_PASSWORD_HASH` via `bin/hash-password.py`, edit `.env`, `docker compose restart backend`. Sessions stay valid for 30 days unless `JWT_SECRET` is also rotated.
+Alembic is staged (`alembic.ini`, empty `versions/`) but unused — **add new schema with `ALTER TABLE` in `init_db()`** until the project graduates to alembic. Credentials live on the User row (`username`, `password_hash`, `totp_secret`, `is_admin`, `disabled_at`).
+
+After setup: no open signup, no email, no password-reset link. Self-service from `/settings`: change own password, enroll/disable TOTP. Admin actions from `/admin`: list users, create non-admin user, reset a non-admin user's password, disable/enable account. Admins cannot disable themselves, cannot reset their own password (they use change-password), and cannot reset *another* admin's password — peer admins manage their own credentials. There's no JWT-versioning column — admin password reset does **not** invalidate existing sessions until natural 30d expiry. Two escape hatches:
+
+- **Single user, immediate**: disable from `/admin`. `disabled_at` is checked in `current_user()` and fails on the next request.
+- **All users, immediate**: rotate `JWT_SECRET` in `.env` and `docker compose restart backend`.
 
 ### Auth
 
 `backend/app/auth.py`:
-- bcrypt password verify + optional TOTP (`pyotp`, 6 digits, `valid_window=1`).
-- JWT in HttpOnly+Secure+SameSite=Lax cookie. Cookie name from `SESSION_COOKIE_NAME` env (default `focus_session`).
-- Failed auth attempts call `slow_fail()` — a fixed `asyncio.sleep(1.2)` before raising 401, to slow brute force.
-- `current_user()` is the FastAPI dependency every protected route uses.
-- Public endpoint `GET /api/auth/config` returns `{totp_required: bool}` so the login UI can decide whether to render the TOTP field.
+- Per-user bcrypt password verify (`verify_user_password(user, plaintext)`) + per-user TOTP (`verify_user_totp(user, code)`, `pyotp`, 6 digits, `valid_window=1`). TOTP is treated as pass when `user.totp_secret` is null, so non-enrolled users skip the check.
+- `issue_jwt(user_id)` → JWT in HttpOnly+Secure+SameSite=Lax cookie. Cookie name from `SESSION_COOKIE_NAME` env (default `focus_session`).
+- Failed login attempts call `slow_fail()` — a fixed `asyncio.sleep(1.2)` before raising 401, to slow brute force. Login returns a uniform "Bad credentials" 401 for unknown username, wrong password, wrong TOTP, and disabled account — no user-existence leak.
+- `current_user()` is the FastAPI dependency every protected route uses; it also rejects rows with `disabled_at` set.
+- `require_admin` is the gate for `/api/admin/*`.
+- TOTP enrollment is two-step: `POST /api/auth/totp/setup` returns a fresh secret + `otpauth://` URI and stores the candidate in an in-memory dict keyed by `user.id`. `POST /api/auth/totp/confirm` with a valid 6-digit code commits it. Single-process; the dict clears on restart, which is acceptable — a restart mid-enrollment just makes the user run setup again.
 
 ### Routing layout
 
 All backend routes are under `/api/*` (every router sets a `/api/...` prefix). nginx exploits this to cleanly split traffic: `location /api/` → backend, `location /` → frontend. **Do not introduce non-`/api` backend routes** without updating the nginx vhost.
 
 Routers (`backend/app/routers/`):
-- `auth.py` — login/logout/me/config
+- `auth.py` — `GET /setup-required` (public, true when 0 users), `POST /setup` (first-run admin signup, gated on empty users table), `POST /login` (username + password + optional TOTP, returns user dict), `POST /logout`, `GET /me`, `POST /change-password`, `POST /totp/setup` + `/totp/confirm` + `/totp/disable`. There is no `/api/auth/config` endpoint — the login form just always shows username + password and an opt-in 2FA field. Login uses `equalize_login_timing()` against a constant dummy hash on the not-found branch to keep response times constant whether or not the username exists.
+- `admin.py` — admin-only (`require_admin`): `GET /api/admin/users`, `POST /api/admin/users`, `POST /api/admin/users/{id}/reset-password` (refuses peer admins), `POST /api/admin/users/{id}/disable`, `POST /api/admin/users/{id}/enable`. Admins cannot target themselves.
 - `tasks.py` — CRUD plus `POST /api/tasks/{id}/dictation` (atomic dictation append), `POST /api/tasks/{id}/copy` (duplicate to today, subtasks reset to undone), `GET /api/tasks/backlog` (rows with `day_date IS NULL`)
 - `sessions.py` — pomodoro start/end + today/week dashboards
 - `morning.py` — `GET /state` and `POST /complete`/`/skip` for the ritual. State now also returns `stuck_yesterday`, `stale_backlog`, `backlog_top`, `stuck_threshold_days`. Complete accepts `pull_from_backlog`, `dropped_stale_ids`, `kept_stale_ids` and prunes done subtasks + bumps `carried_count` on carry.

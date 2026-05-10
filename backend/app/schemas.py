@@ -7,8 +7,37 @@ EffortLevel = Literal["S", "M", "L"]
 
 
 class LoginRequest(BaseModel):
+    username: str = Field(min_length=1, max_length=80)
     password: str = Field(min_length=1, max_length=200)
     totp_code: str | None = None
+
+
+class SetupRequest(BaseModel):
+    username: str = Field(min_length=1, max_length=80, pattern=r"^[A-Za-z0-9_-]+$")
+    password: str = Field(min_length=12, max_length=200)
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str = Field(min_length=1, max_length=200)
+    new_password: str = Field(min_length=12, max_length=200)
+
+
+class TotpConfirmRequest(BaseModel):
+    code: str = Field(pattern=r"^\d{6}$")
+
+
+class TotpDisableRequest(BaseModel):
+    password: str = Field(min_length=1, max_length=200)
+
+
+class AdminCreateUserRequest(BaseModel):
+    username: str = Field(min_length=1, max_length=80, pattern=r"^[A-Za-z0-9_-]+$")
+    password: str = Field(min_length=12, max_length=200)
+    is_admin: bool = False
+
+
+class AdminResetPasswordRequest(BaseModel):
+    new_password: str = Field(min_length=12, max_length=200)
 
 
 class SubtaskItem(BaseModel):

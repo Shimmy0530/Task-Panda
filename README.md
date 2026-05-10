@@ -1,6 +1,6 @@
 # Task Panda
 
-A quiet, ADHD-aware focus tool. Self-hosted, single-user.
+A quiet, ADHD-aware focus tool. Self-hosted, small-team friendly.
 
 Each morning you pick one boring-important task, up to four supporting tasks, and run a 25-minute focus session. The aim is a calm interface that gets out of your way — no streaks-as-shame, no notification noise.
 
@@ -8,7 +8,7 @@ Each morning you pick one boring-important task, up to four supporting tasks, an
 
 - **Frontend:** SvelteKit PWA + Tailwind, `@sveltejs/adapter-node`, dark warm aesthetic
 - **Backend:** FastAPI + SQLAlchemy + SQLite
-- **Auth:** bcrypt password + optional TOTP 2FA, JWT in HttpOnly cookie
+- **Auth:** username + bcrypt password + per-user optional TOTP 2FA, JWT in HttpOnly cookie. First run with an empty DB turns the login page into a one-time signup form — the first account becomes the admin. From there the `/admin` page handles user creation, password reset, and disable/enable.
 - **LLM + STT:** Groq (OpenAI-compatible chat completions, Whisper) — provider-swappable
 - **Reverse proxy:** runs in front of the compose stack and terminates TLS. This README shows a Caddy setup for PC use; the repo also ships an nginx vhost template at `deploy/nginx.example.conf` for a public VM.
 
@@ -33,35 +33,18 @@ cd Task-Panda
 cp .env.example .env
 ```
 
-Generate the secret values, then paste them into `.env`:
+You only need to set three things in `.env`:
 
 ```bash
-# Mac / Linux
-python3 -m venv .venv
-.venv/bin/pip install bcrypt pyotp
-
-# Session-signing key
+# Session-signing key (any random 128-char hex string is fine)
 JWT=$(openssl rand -hex 64) && perl -i -pe "s|^JWT_SECRET=.*|JWT_SECRET=$JWT|" .env && unset JWT
-
-# Password hash — interactive prompt; copy the printed AUTH_PASSWORD_HASH= line into .env
-.venv/bin/python bin/hash-password.py
-
-# Optional 2FA — interactive; copy the AUTH_TOTP_SECRET= line into .env, then
-# scan the printed otpauth:// URL with your authenticator app
-.venv/bin/python bin/setup-2fa.py
 ```
 
 Then open `.env` in an editor and set:
 - `LLM_API_KEY=<your-groq-key>`
 - `APP_BASE_URL=https://localhost`
 
-> **Windows:** replace `python3 -m venv .venv && .venv/bin/...` with `python -m venv .venv && .venv\Scripts\...`.
->
-> **No Python at all?** Run the helper scripts in a one-off container instead:
-> ```
-> docker run --rm -it -v "${PWD}:/work" -w /work python:3.12-slim \
->   bash -c "pip install -q bcrypt pyotp && python bin/hash-password.py"
-> ```
+There's no password to put in `.env`. The first time you load the app with an empty database, the login page becomes a one-time signup form — pick a username and password and that account becomes the admin.
 
 ### 2. Add a local TLS proxy
 
@@ -118,7 +101,7 @@ docker compose up -d --build
 
 First build takes a couple minutes (svelte compile). Subsequent starts are seconds.
 
-Open **https://localhost** in your browser. You'll see a one-time cert warning — accept it. Log in with the password you generated in step 1.
+Open **https://localhost** in your browser. You'll see a one-time cert warning — accept it. The login page will prompt you to create the admin account on first visit; pick a username and password (≥12 chars) and you're in.
 
 ### 4. Day-to-day commands
 
@@ -145,7 +128,7 @@ For backend-only changes, append `backend` to the compose command to skip the sl
 
 | Route | Purpose |
 |---|---|
-| `/login` | Password (+ optional 2FA) |
+| `/login` | Username + password (+ optional 2FA) |
 | `/morning` | Guided ritual: handle yesterday's open work, name the boring important one, pick up to two more, optionally pull from backlog, hygiene-prompt 30+ day stale items |
 | `/plan` | Today's tasks (max 5, exactly one boring important one). Inline subtasks (manual + AI breakdown), S/M/L effort chip, copy-task, footer link to backlog |
 | `/backlog` | Things that aren't for today (`day_date IS NULL`). Doesn't count against the day cap. `→ today` graduates a row (subject to cap) |
@@ -153,7 +136,8 @@ For backend-only changes, append `backend` to the compose command to skip the sl
 | `/dictate?task=<id>` | Record → Groq Whisper → LLM outline → save to task |
 | `/capture` | Inbox of intrusive thoughts (`⌘.` from anywhere) |
 | `/review` | Daily + 7-day ratio + AI weekly summary (cached server-side per day) |
-| `/settings` | Stuck-task threshold (default 5 days) |
+| `/settings` | Stuck-task threshold, change password, enroll/disable authenticator |
+| `/admin` | (admin role only) List users, create users, reset password, disable/enable accounts |
 
 ## Hotkeys
 
@@ -240,15 +224,13 @@ npm run dev                       # :5173
 
 For local PC use the same command works pointing at your local `./data/`.
 
-## Changing your password
+## Users and passwords
 
-```bash
-python bin/hash-password.py
-# update AUTH_PASSWORD_HASH in .env, then:
-docker compose restart backend
-# All existing sessions stay valid until JWT expiry (30d). To force logout
-# everywhere, also rotate JWT_SECRET.
-```
+Day-to-day: log in and change your own password from `/settings → security`. Admins can also create new users, reset any non-admin user's password, and disable/enable accounts from `/admin`. Other admins manage their own passwords — admins can't reset each other.
+
+`bin/hash-password.py` is kept around for one emergency case: an admin who has lost their password and has no other admin to reset it. SSH in, generate a new hash, and update `users.password_hash` directly with `sqlite3`.
+
+To force-logout every user (e.g. after a leak), rotate `JWT_SECRET` in `.env` and `docker compose restart backend`. To kick a single user immediately, disable their account from `/admin`.
 
 ## Switching LLM providers
 
@@ -263,7 +245,7 @@ If you want LLM and STT on different vendors with separate keys, fork `backend/a
 
 ## Scope
 
-Single-user, self-hosted. There's no signup flow, no multi-tenant model, no email — one owner per instance. Auth is a bcrypt password plus optional 2FA. The backend's only outbound calls are to your configured LLM provider.
+Self-hosted, small-team friendly. The first sign-up on an empty install becomes the admin; that admin creates additional users from `/admin`. There's no open signup after the first run, no email, no password-reset link — just admin-issued accounts and self-service password / TOTP changes from `/settings`. Auth is a bcrypt password plus optional per-user 2FA. The backend's only outbound calls are to your configured LLM provider.
 
 ## Roadmap
 

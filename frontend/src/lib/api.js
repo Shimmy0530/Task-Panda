@@ -6,6 +6,13 @@ export function localToday() {
   return new Date().toLocaleDateString('en-CA');
 }
 
+// Returns null when valid, an error string otherwise.
+export function validateNewPassword(pw, confirm) {
+  if (!pw || pw.length < 12) return 'password must be at least 12 chars';
+  if (pw !== confirm) return 'passwords do not match';
+  return null;
+}
+
 async function request(path, opts = {}) {
   const res = await fetch(`${base}${path}`, {
     credentials: 'include',
@@ -30,9 +37,25 @@ export const api = {
 
 export const auth = {
   me: () => api.get('/api/auth/me'),
-  config: () => api.get('/api/auth/config'),
-  login: (password, totp_code) => api.post('/api/auth/login', { password, totp_code }),
-  logout: () => api.post('/api/auth/logout')
+  setupRequired: () => api.get('/api/auth/setup-required'),
+  setup: (username, password) => api.post('/api/auth/setup', { username, password }),
+  login: (username, password, totp_code) =>
+    api.post('/api/auth/login', { username, password, totp_code }),
+  logout: () => api.post('/api/auth/logout'),
+  changePassword: (current_password, new_password) =>
+    api.post('/api/auth/change-password', { current_password, new_password }),
+  totpSetup: () => api.post('/api/auth/totp/setup'),
+  totpConfirm: (code) => api.post('/api/auth/totp/confirm', { code }),
+  totpDisable: (password) => api.post('/api/auth/totp/disable', { password })
+};
+
+export const admin = {
+  users: () => api.get('/api/admin/users'),
+  createUser: (u) => api.post('/api/admin/users', u),
+  resetPassword: (id, new_password) =>
+    api.post(`/api/admin/users/${id}/reset-password`, { new_password }),
+  disable: (id) => api.post(`/api/admin/users/${id}/disable`),
+  enable: (id) => api.post(`/api/admin/users/${id}/enable`)
 };
 
 export const tasks = {
