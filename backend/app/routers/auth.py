@@ -146,7 +146,6 @@ def mark_welcomed(
     Idempotent: calling again just refreshes the timestamp."""
     user.welcomed_at = datetime.utcnow()
     db.commit()
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/change-password")
