@@ -31,6 +31,7 @@ def init_db() -> None:
             "ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0",
             "ALTER TABLE users ADD COLUMN disabled_at DATETIME",
             "ALTER TABLE users ADD COLUMN approved_at DATETIME",
+            "ALTER TABLE users ADD COLUMN welcomed_at DATETIME",
             "CREATE UNIQUE INDEX IF NOT EXISTS ix_users_username ON users (username)",
         ]:
             try:
