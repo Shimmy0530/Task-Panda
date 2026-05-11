@@ -2,9 +2,11 @@
   import { onMount } from 'svelte';
   import { settings as settingsApi, auth, validateNewPassword } from '$lib/api.js';
   import { user } from '$lib/stores.js';
+  import WelcomeModal from '$lib/WelcomeModal.svelte';
 
   let stuckThreshold = 5;
   let saved = false;
+  let showReplay = false;
   let savedTimer = null;
   let err = '';
   let loaded = false;
@@ -255,4 +257,16 @@
 
     {#if totpErr}<p class="text-rust text-xs">{totpErr}</p>{/if}
   </section>
+
+  <!-- Help -->
+  <section class="surface rounded-md p-5 space-y-3">
+    <p class="label mb-1">help</p>
+    <button class="btn-ghost" on:click={() => (showReplay = true)}>
+      replay welcome tour
+    </button>
+  </section>
 </div>
+
+{#if showReplay}
+  <WelcomeModal bind:open={showReplay} replay={true} on:close={() => (showReplay = false)} />
+{/if}
