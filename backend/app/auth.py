@@ -77,6 +77,7 @@ def user_dict(user: User) -> dict:
         "is_admin": user.is_admin,
         "totp_enrolled": bool(user.totp_secret),
         "last_ritual_date": user.last_ritual_date.isoformat() if user.last_ritual_date else None,
+        "welcomed_at": user.welcomed_at.isoformat() if user.welcomed_at else None,
     }
 
 
