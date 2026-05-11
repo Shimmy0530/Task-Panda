@@ -5,14 +5,20 @@
   import { page } from '$app/stores';
   import { auth, captures } from '$lib/api.js';
   import { user } from '$lib/stores.js';
+  import WelcomeModal from '$lib/WelcomeModal.svelte';
 
   let showCapture = false;
+  let showWelcome = false;
   let captureText = '';
   let menuOpen = false;
 
   onMount(async () => {
     try {
-      user.set(await auth.me());
+      const me = await auth.me();
+      user.set(me);
+      if (!me.welcomed_at && !$page.url.pathname.startsWith('/login')) {
+        showWelcome = true;
+      }
     } catch {
       user.set(null);
       if (!$page.url.pathname.startsWith('/login')) goto('/login');
@@ -46,6 +52,11 @@
     await captures.create(captureText.trim());
     captureText = '';
     showCapture = false;
+  }
+
+  function handleWelcomeClose() {
+    showWelcome = false;
+    user.update((u) => (u ? { ...u, welcomed_at: new Date().toISOString() } : u));
   }
 
   async function signOut() {
@@ -168,5 +179,9 @@
         </div>
       </div>
     </div>
+  {/if}
+
+  {#if showWelcome && $user}
+    <WelcomeModal bind:open={showWelcome} on:close={handleWelcomeClose} />
   {/if}
 </div>
