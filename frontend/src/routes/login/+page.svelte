@@ -4,7 +4,8 @@
   import { auth, validateNewPassword } from '$lib/api.js';
   import { user } from '$lib/stores.js';
 
-  let mode = 'loading'; // 'loading' | 'signup' | 'login'
+  // 'loading' | 'signup' (first-run admin) | 'login' | 'register' (open signup, pending)
+  let mode = 'loading';
   let username = '';
   let password = '';
   let confirm = '';
@@ -12,6 +13,7 @@
   let showTotp = false;
   let busy = false;
   let err = '';
+  let pendingNotice = '';
 
   onMount(async () => {
     try {
@@ -30,6 +32,16 @@
       mode = 'login';
     }
   });
+
+  function switchMode(next) {
+    err = '';
+    pendingNotice = '';
+    password = '';
+    confirm = '';
+    totpCode = '';
+    showTotp = false;
+    mode = next;
+  }
 
   async function submit() {
     if (busy) return;
@@ -51,6 +63,22 @@
       return;
     }
 
+    if (mode === 'register') {
+      const v = validateNewPassword(password, confirm);
+      if (v) { err = v; return; }
+      busy = true;
+      try {
+        await auth.register(username.trim(), password);
+        pendingNotice = `Account requested for "${username.trim()}". An admin needs to approve it before you can sign in.`;
+        switchMode('login');
+      } catch (e) {
+        err = e.message || 'Registration failed';
+      } finally {
+        busy = false;
+      }
+      return;
+    }
+
     busy = true;
     try {
       const r = await auth.login(username.trim(), password, totpCode || null);
@@ -64,7 +92,8 @@
     }
   }
 
-  $: canSubmit = mode === 'signup'
+  $: needsConfirm = mode === 'signup' || mode === 'register';
+  $: canSubmit = needsConfirm
     ? username.trim() && password && confirm
     : username.trim() && password;
 </script>
@@ -84,7 +113,13 @@
     <p class="label mb-1">first run</p>
     <h1 class="font-display text-2xl text-ink-100 tracking-tightest leading-none mb-3">create the admin account.</h1>
     <p class="text-ink-400 mb-8 leading-relaxed text-sm">
-      No accounts exist yet. The first sign-up here becomes the admin and can add other users from the admin page later.
+      No accounts exist yet. The first sign-up here becomes the admin and can approve other users from the admin page later.
+    </p>
+  {:else if mode === 'register'}
+    <p class="label mb-1">request access</p>
+    <h1 class="font-display text-2xl text-ink-100 tracking-tightest leading-none mb-3">create an account.</h1>
+    <p class="text-ink-400 mb-8 leading-relaxed text-sm">
+      Pick a username and password. An admin will review and approve before you can sign in.
     </p>
   {:else}
     <p class="text-ink-400 mb-10 leading-relaxed">
@@ -93,6 +128,10 @@
   {/if}
 
   {#if mode !== 'loading'}
+    {#if pendingNotice}
+      <p class="text-moss text-sm mb-6 leading-relaxed">{pendingNotice}</p>
+    {/if}
+
     <div class="space-y-4">
       <div>
         <label class="label block mb-1.5" for="un">username</label>
@@ -112,17 +151,17 @@
         <input
           id="pw"
           type="password"
-          autocomplete={mode === 'signup' ? 'new-password' : 'current-password'}
+          autocomplete={needsConfirm ? 'new-password' : 'current-password'}
           class="input"
           bind:value={password}
           on:keydown={(e) => e.key === 'Enter' && submit()}
         />
-        {#if mode === 'signup'}
+        {#if needsConfirm}
           <p class="text-ink-600 text-xs mt-1">at least 12 characters</p>
         {/if}
       </div>
 
-      {#if mode === 'signup'}
+      {#if needsConfirm}
         <div>
           <label class="label block mb-1.5" for="cf">confirm password</label>
           <input
@@ -170,11 +209,37 @@
         disabled={busy || !canSubmit}
       >
         {#if busy}
-          {mode === 'signup' ? 'creating account…' : 'signing in…'}
+          {#if mode === 'signup'}creating account…
+          {:else if mode === 'register'}submitting…
+          {:else}signing in…
+          {/if}
         {:else}
-          {mode === 'signup' ? 'create admin account' : 'sign in'}
+          {#if mode === 'signup'}create admin account
+          {:else if mode === 'register'}request account
+          {:else}sign in
+          {/if}
         {/if}
       </button>
+
+      {#if mode === 'login'}
+        <p class="text-ink-500 text-xs text-center pt-1">
+          new here?
+          <button
+            type="button"
+            class="text-ink-300 hover:text-ink-100 underline-offset-2 hover:underline"
+            on:click={() => switchMode('register')}
+          >request an account</button>
+        </p>
+      {:else if mode === 'register'}
+        <p class="text-ink-500 text-xs text-center pt-1">
+          already have one?
+          <button
+            type="button"
+            class="text-ink-300 hover:text-ink-100 underline-offset-2 hover:underline"
+            on:click={() => switchMode('login')}
+          >sign in</button>
+        </p>
+      {/if}
     </div>
   {/if}
 </div>

@@ -59,6 +59,8 @@ def current_user(
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "User not found")
     if user.disabled_at is not None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Account disabled")
+    if user.approved_at is None:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Account pending approval")
     return user
 
 

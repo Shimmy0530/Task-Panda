@@ -19,10 +19,12 @@ from ..models import User
 from ..schemas import (
     ChangePasswordRequest,
     LoginRequest,
+    RegisterRequest,
     SetupRequest,
     TotpConfirmRequest,
     TotpDisableRequest,
 )
+from datetime import datetime
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -58,6 +60,7 @@ def setup(payload: SetupRequest, response: Response, db: Session = Depends(get_d
         username=payload.username,
         password_hash=hash_password(payload.password),
         is_admin=True,
+        approved_at=datetime.utcnow(),
     )
     db.add(user)
     try:
@@ -68,6 +71,32 @@ def setup(payload: SetupRequest, response: Response, db: Session = Depends(get_d
     db.refresh(user)
     _set_session_cookie(response, issue_jwt(user.id))
     return {"ok": True, "user": user_dict(user)}
+
+
+@router.post("/register", status_code=status.HTTP_201_CREATED)
+async def register(payload: RegisterRequest, db: Session = Depends(get_db)):
+    """Open registration. Account is created in pending state and cannot
+    sign in until an admin approves it. Refused on a fresh install — the
+    very first account must come through /setup so there's an admin to
+    approve subsequent registrations."""
+    if db.query(User).count() == 0:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "First account must be created through setup.",
+        )
+    user = User(
+        username=payload.username,
+        password_hash=hash_password(payload.password),
+        is_admin=False,
+        approved_at=None,
+    )
+    db.add(user)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status.HTTP_409_CONFLICT, "Username already taken")
+    return {"ok": True, "pending": True}
 
 
 @router.post("/login")
@@ -83,6 +112,15 @@ async def login(payload: LoginRequest, response: Response, db: Session = Depends
     if not verify_user_totp(user, payload.totp_code):
         await slow_fail()
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Bad credentials")
+    if user.approved_at is None:
+        # Password checks out, but the account hasn't been approved by an
+        # admin yet. Tell the user plainly — registration already reveals
+        # which usernames exist, so this leaks nothing new.
+        await slow_fail()
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Account pending admin approval.",
+        )
 
     _set_session_cookie(response, issue_jwt(user.id))
     return {"ok": True, "user": user_dict(user)}

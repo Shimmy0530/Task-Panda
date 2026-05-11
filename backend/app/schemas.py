@@ -17,6 +17,11 @@ class SetupRequest(BaseModel):
     password: str = Field(min_length=12, max_length=200)
 
 
+class RegisterRequest(BaseModel):
+    username: str = Field(min_length=1, max_length=80, pattern=r"^[A-Za-z0-9_-]+$")
+    password: str = Field(min_length=12, max_length=200)
+
+
 class ChangePasswordRequest(BaseModel):
     current_password: str = Field(min_length=1, max_length=200)
     new_password: str = Field(min_length=12, max_length=200)

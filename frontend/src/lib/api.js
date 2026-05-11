@@ -39,6 +39,7 @@ export const auth = {
   me: () => api.get('/api/auth/me'),
   setupRequired: () => api.get('/api/auth/setup-required'),
   setup: (username, password) => api.post('/api/auth/setup', { username, password }),
+  register: (username, password) => api.post('/api/auth/register', { username, password }),
   login: (username, password, totp_code) =>
     api.post('/api/auth/login', { username, password, totp_code }),
   logout: () => api.post('/api/auth/logout'),
@@ -55,7 +56,8 @@ export const admin = {
   resetPassword: (id, new_password) =>
     api.post(`/api/admin/users/${id}/reset-password`, { new_password }),
   disable: (id) => api.post(`/api/admin/users/${id}/disable`),
-  enable: (id) => api.post(`/api/admin/users/${id}/enable`)
+  enable: (id) => api.post(`/api/admin/users/${id}/enable`),
+  approve: (id) => api.post(`/api/admin/users/${id}/approve`)
 };
 
 export const tasks = {

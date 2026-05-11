@@ -19,6 +19,7 @@ def _to_out(user: User) -> dict:
         "is_admin": user.is_admin,
         "totp_enrolled": bool(user.totp_secret),
         "disabled_at": user.disabled_at.isoformat() if user.disabled_at else None,
+        "approved_at": user.approved_at.isoformat() if user.approved_at else None,
         "created_at": user.created_at.isoformat() if user.created_at else None,
     }
 
@@ -42,6 +43,7 @@ def create_user(
         username=payload.username,
         password_hash=hash_password(payload.password),
         is_admin=payload.is_admin,
+        approved_at=datetime.utcnow(),
     )
     db.add(user)
     try:
@@ -50,6 +52,21 @@ def create_user(
         db.rollback()
         raise HTTPException(status.HTTP_409_CONFLICT, "Username already exists")
     db.refresh(user)
+    return _to_out(user)
+
+
+@router.post("/users/{user_id}/approve")
+def approve_user(
+    user_id: int,
+    _admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    user = db.get(User, user_id)
+    if not user:
+        raise HTTPException(404, "Not found")
+    if user.approved_at is None:
+        user.approved_at = datetime.utcnow()
+        db.commit()
     return _to_out(user)
 
 

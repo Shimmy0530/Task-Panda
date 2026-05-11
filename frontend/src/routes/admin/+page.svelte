@@ -112,6 +112,18 @@
       err = e.message;
     }
   }
+
+  async function approve(u) {
+    try {
+      await adminApi.approve(u.id);
+      await load();
+    } catch (e) {
+      err = e.message;
+    }
+  }
+
+  $: pendingUsers = users.filter((u) => !u.approved_at);
+  $: activeUsers = users.filter((u) => u.approved_at);
 </script>
 
 <div class="space-y-8">
@@ -125,6 +137,28 @@
   {#if !loaded}
     <p class="text-ink-500 text-sm">loading…</p>
   {:else}
+    {#if pendingUsers.length > 0}
+      <section class="surface rounded-md p-5 space-y-3 border border-frog/50">
+        <h2 class="text-ink-100 text-lg">pending approvals</h2>
+        <p class="text-ink-400 text-xs leading-relaxed">
+          These accounts registered themselves and need your approval before they can sign in.
+        </p>
+        <ul class="space-y-2">
+          {#each pendingUsers as u (u.id)}
+            <li class="flex items-center justify-between bg-ink-900/40 rounded px-3 py-2">
+              <div class="text-sm">
+                <span class="font-mono text-ink-100">{u.username}</span>
+                <span class="text-ink-600 text-xs ml-2">
+                  requested {u.created_at ? new Date(u.created_at).toLocaleString() : ''}
+                </span>
+              </div>
+              <button class="btn-primary text-xs" on:click={() => approve(u)}>approve</button>
+            </li>
+          {/each}
+        </ul>
+      </section>
+    {/if}
+
     <section class="surface rounded-md overflow-hidden">
       <table class="w-full text-sm">
         <thead class="bg-ink-900/40 text-left">
@@ -148,12 +182,20 @@
               <td class="px-4 py-3">
                 {#if u.disabled_at}
                   <span class="text-rust text-xs">disabled</span>
+                {:else if !u.approved_at}
+                  <span class="text-frog text-xs">pending</span>
                 {:else}
                   <span class="text-moss text-xs">active</span>
                 {/if}
               </td>
               <td class="px-4 py-3 text-right">
                 {#if u.id !== $user?.id}
+                  {#if !u.approved_at && !u.disabled_at}
+                    <button
+                      class="btn-ghost text-xs"
+                      on:click={() => approve(u)}
+                    >approve</button>
+                  {/if}
                   <button
                     class="btn-ghost text-xs"
                     on:click={() => openReset(u)}

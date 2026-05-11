@@ -30,12 +30,24 @@ def init_db() -> None:
             "ALTER TABLE users ADD COLUMN totp_secret VARCHAR(64)",
             "ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0",
             "ALTER TABLE users ADD COLUMN disabled_at DATETIME",
+            "ALTER TABLE users ADD COLUMN approved_at DATETIME",
             "CREATE UNIQUE INDEX IF NOT EXISTS ix_users_username ON users (username)",
         ]:
             try:
                 conn.execute(text(ddl))
             except OperationalError:
                 pass
+
+        # Backfill: any pre-existing user predates the approval gate, so
+        # auto-approve them at their original created_at. Idempotent — only
+        # touches rows where approved_at is still NULL.
+        try:
+            conn.execute(text(
+                "UPDATE users SET approved_at = created_at "
+                "WHERE approved_at IS NULL AND created_at IS NOT NULL"
+            ))
+        except OperationalError:
+            pass
 
 
 def get_db():
