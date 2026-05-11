@@ -64,14 +64,14 @@
       <nav class="max-w-3xl mx-auto px-5 py-4 flex items-center gap-6 text-sm">
         <a href="/" class="flex items-center gap-2 text-ink-100" aria-label="Task Panda — home">
           <img src="/logo-mark.png" alt="" class="h-7 w-7" width="28" height="28" />
-          <span class="font-display text-lg tracking-tightest hidden sm:inline">task panda</span>
+          <span class="font-display text-lg tracking-tightest">task panda</span>
         </a>
-        <a href="/plan" class="text-ink-400 hover:text-ink-100" class:!text-ink-100={$page.url.pathname.startsWith('/plan')}>plan</a>
-        <a href="/focus" class="text-ink-400 hover:text-ink-100" class:!text-ink-100={$page.url.pathname.startsWith('/focus')}>focus</a>
-        <a href="/dictate" class="text-ink-400 hover:text-ink-100" class:!text-ink-100={$page.url.pathname.startsWith('/dictate')}>dictate</a>
-        <a href="/capture" class="text-ink-400 hover:text-ink-100" class:!text-ink-100={$page.url.pathname.startsWith('/capture')}>inbox</a>
-        <a href="/review" class="text-ink-400 hover:text-ink-100" class:!text-ink-100={$page.url.pathname.startsWith('/review')}>review</a>
-        <a href="/settings" class="text-ink-400 hover:text-ink-100" class:!text-ink-100={$page.url.pathname.startsWith('/settings')}>settings</a>
+        <a href="/plan" class="hidden sm:inline text-ink-400 hover:text-ink-100" class:!text-ink-100={$page.url.pathname.startsWith('/plan')}>plan</a>
+        <a href="/focus" class="hidden sm:inline text-ink-400 hover:text-ink-100" class:!text-ink-100={$page.url.pathname.startsWith('/focus')}>focus</a>
+        <a href="/dictate" class="hidden sm:inline text-ink-400 hover:text-ink-100" class:!text-ink-100={$page.url.pathname.startsWith('/dictate')}>dictate</a>
+        <a href="/capture" class="hidden sm:inline text-ink-400 hover:text-ink-100" class:!text-ink-100={$page.url.pathname.startsWith('/capture')}>inbox</a>
+        <a href="/review" class="hidden sm:inline text-ink-400 hover:text-ink-100" class:!text-ink-100={$page.url.pathname.startsWith('/review')}>review</a>
+        <a href="/settings" class="hidden sm:inline text-ink-400 hover:text-ink-100" class:!text-ink-100={$page.url.pathname.startsWith('/settings')}>settings</a>
 
         <div class="ml-auto flex items-center gap-4">
           <span class="text-ink-500 font-mono text-xs hidden sm:block">⌘ . capture</span>
@@ -116,9 +116,32 @@
     </header>
   {/if}
 
-  <main class="max-w-3xl mx-auto px-5 py-8">
+  <main class="max-w-3xl mx-auto px-5 py-8 pb-28 sm:pb-8">
     <slot />
   </main>
+
+  {#if $user}
+    <nav
+      class="sm:hidden fixed bottom-0 inset-x-0 z-30 border-t border-ink-700/60 bg-ink-950/95 backdrop-blur"
+      style="padding-bottom: env(safe-area-inset-bottom)"
+      aria-label="primary"
+    >
+      <div class="flex items-stretch justify-around text-xs">
+        <a href="/plan" class="flex-1 text-center py-3 text-ink-400" class:!text-ink-100={$page.url.pathname.startsWith('/plan')}>plan</a>
+        <a href="/focus" class="flex-1 text-center py-3 text-ink-400" class:!text-ink-100={$page.url.pathname.startsWith('/focus')}>focus</a>
+        <a href="/dictate" class="flex-1 text-center py-3 text-ink-400" class:!text-ink-100={$page.url.pathname.startsWith('/dictate')}>dictate</a>
+        <a href="/capture" class="flex-1 text-center py-3 text-ink-400" class:!text-ink-100={$page.url.pathname.startsWith('/capture')}>inbox</a>
+        <a href="/review" class="flex-1 text-center py-3 text-ink-400" class:!text-ink-100={$page.url.pathname.startsWith('/review')}>review</a>
+      </div>
+    </nav>
+
+    <button
+      class="sm:hidden fixed right-5 z-30 h-14 w-14 rounded-full bg-frog text-ink-950 text-3xl leading-none font-semibold shadow-lg flex items-center justify-center hover:bg-frog-glow transition"
+      style="bottom: calc(4.25rem + env(safe-area-inset-bottom))"
+      on:click={() => (showCapture = true)}
+      aria-label="capture a thought"
+    >+</button>
+  {/if}
 
   {#if showCapture}
     <div
