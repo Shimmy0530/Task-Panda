@@ -47,7 +47,8 @@ export const auth = {
     api.post('/api/auth/change-password', { current_password, new_password }),
   totpSetup: () => api.post('/api/auth/totp/setup'),
   totpConfirm: (code) => api.post('/api/auth/totp/confirm', { code }),
-  totpDisable: (password) => api.post('/api/auth/totp/disable', { password })
+  totpDisable: (password) => api.post('/api/auth/totp/disable', { password }),
+  welcome: () => api.post('/api/auth/welcome')
 };
 
 export const admin = {
