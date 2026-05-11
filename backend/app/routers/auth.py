@@ -137,6 +137,18 @@ def me(user: User = Depends(current_user)):
     return user_dict(user)
 
 
+@router.post("/welcome", status_code=status.HTTP_204_NO_CONTENT)
+def mark_welcomed(
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Stamp the current user as having seen the welcome tour.
+    Idempotent: calling again just refreshes the timestamp."""
+    user.welcomed_at = datetime.utcnow()
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 @router.post("/change-password")
 async def change_password(
     payload: ChangePasswordRequest,
