@@ -87,7 +87,19 @@ The cleanest local-dev path mirrors the chemex nginx vhost in front of the same 
 
 `task-panda.localhost` resolves to 127.0.0.1 in modern browsers (RFC 6761), so no hosts-file edit. Set `APP_BASE_URL=https://task-panda.localhost:<port>` in your local `.env`. First request: accept the browser cert warning once, or import Caddy's local CA from `/data/caddy/pki/authorities/local/root.crt` inside the container.
 
-There are no tests.
+### Tests
+
+End-to-end tests live in `frontend/tests/` and run via Playwright (chromium-based, desktop + mobile viewport projects). They drive a real browser against the local Caddy stack at `https://task-panda.localhost:17842`, so the stack must be `docker compose up -d` before running. Auth is bypassed by minting a session JWT inside the backend container via `app.auth.issue_jwt` — no password needed. See `frontend/tests/global-setup.js`.
+
+```bash
+cd frontend
+npm install                              # one-time, picks up @playwright/test
+npx playwright install chromium          # one-time, downloads chromium-headless-shell
+npx playwright test                      # run all specs on both viewport projects
+npx playwright test --project=chromium-desktop   # one project only
+```
+
+No backend unit tests yet — backend behavior is exercised transitively through the Playwright specs. When adding a new feature with non-trivial UI, drop a `*.spec.js` next to the existing ones following the same pattern (reset relevant DB state in `beforeEach` via `docker compose exec backend python -c "..."`).
 
 ### Validating compose YAML locally
 
