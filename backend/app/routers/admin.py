@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from ..auth import hash_password, require_admin
+from ..auth import hash_password, require_admin, revoke_user_sessions
 from ..db import get_db
 from ..models import User
 from ..schemas import AdminCreateUserRequest, AdminResetPasswordRequest
@@ -85,6 +85,7 @@ def reset_password(
     if user.is_admin:
         raise HTTPException(403, "Can't reset another admin's password — they change their own.")
     user.password_hash = hash_password(payload.new_password)
+    revoke_user_sessions(user)
     db.commit()
     return {"ok": True}
 
@@ -102,6 +103,7 @@ def disable_user(
         raise HTTPException(404, "Not found")
     if user.disabled_at is None:
         user.disabled_at = datetime.utcnow()
+        revoke_user_sessions(user)
         db.commit()
     return _to_out(user)
 

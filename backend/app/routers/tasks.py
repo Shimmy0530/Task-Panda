@@ -14,6 +14,10 @@ router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 MAX_SUBTASKS = 25
 
 
+def _visible_tasks(query):
+    return query.filter(Task.deleted_at.is_(None))
+
+
 def _enforce_day_caps(
     db: Session,
     user: User,
@@ -23,7 +27,7 @@ def _enforce_day_caps(
     exclude_task_id: int | None = None,
 ):
     """Raise 400 if landing a task on target_day would break the 5/day or 1-frog/day cap."""
-    q = db.query(Task).filter(Task.user_id == user.id, Task.day_date == target_day)
+    q = _visible_tasks(db.query(Task)).filter(Task.user_id == user.id, Task.day_date == target_day)
     if exclude_task_id is not None:
         q = q.filter(Task.id != exclude_task_id)
     rows = q.all()
@@ -41,7 +45,7 @@ def list_tasks(
 ):
     day = day or Date.today()
     rows = (
-        db.query(Task)
+        _visible_tasks(db.query(Task))
         .filter(Task.user_id == user.id, Task.day_date == day)
         .order_by(Task.is_frog.desc(), Task.created_at.asc())
         .all()
@@ -55,7 +59,7 @@ def list_backlog(
     db: Session = Depends(get_db),
 ):
     return (
-        db.query(Task)
+        _visible_tasks(db.query(Task))
         .filter(Task.user_id == user.id, Task.day_date.is_(None))
         .order_by(Task.created_at.desc())
         .all()
@@ -96,7 +100,7 @@ def get_task(
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    task = db.query(Task).filter(Task.id == task_id, Task.user_id == user.id).first()
+    task = _visible_tasks(db.query(Task)).filter(Task.id == task_id, Task.user_id == user.id).first()
     if not task:
         raise HTTPException(404, "Not found")
     return task
@@ -109,7 +113,7 @@ def update_task(
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    task = db.query(Task).filter(Task.id == task_id, Task.user_id == user.id).first()
+    task = _visible_tasks(db.query(Task)).filter(Task.id == task_id, Task.user_id == user.id).first()
     if not task:
         raise HTTPException(404, "Not found")
 
@@ -133,7 +137,7 @@ def update_task(
         if task.day_date is None:
             raise HTTPException(400, "Backlog tasks can't be the frog. Pull it to today first.")
         existing_frog = (
-            db.query(Task)
+            _visible_tasks(db.query(Task))
             .filter(
                 Task.user_id == user.id,
                 Task.day_date == task.day_date,
@@ -171,24 +175,26 @@ def delete_task(
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    task = db.query(Task).filter(Task.id == task_id, Task.user_id == user.id).first()
+    task = _visible_tasks(db.query(Task)).filter(Task.id == task_id, Task.user_id == user.id).first()
     if not task:
         raise HTTPException(404, "Not found")
-    db.delete(task)
+    task.deleted_at = datetime.utcnow()
     db.commit()
 
 
 @router.post("/{task_id}/copy", response_model=TaskOut, status_code=status.HTTP_201_CREATED)
 def copy_task(
     task_id: int,
+    today: Date | None = None,
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    src = db.query(Task).filter(Task.id == task_id, Task.user_id == user.id).first()
+    src = _visible_tasks(db.query(Task)).filter(Task.id == task_id, Task.user_id == user.id).first()
     if not src:
         raise HTTPException(404, "Not found")
 
-    today = Date.today()
+    if today is None:
+        raise HTTPException(400, "today is required")
     _enforce_day_caps(db, user, today, is_frog_target=False)
 
     fresh_subtasks = [{**deepcopy(s), "done": False} for s in (src.subtasks or [])]
@@ -221,7 +227,7 @@ def append_dictation(
     db: Session = Depends(get_db),
 ):
     """Atomically append a timestamped dictation block to a task's notes."""
-    task = db.query(Task).filter(Task.id == task_id, Task.user_id == user.id).first()
+    task = _visible_tasks(db.query(Task)).filter(Task.id == task_id, Task.user_id == user.id).first()
     if not task:
         raise HTTPException(404, "Not found")
 

@@ -25,6 +25,7 @@ class User(Base):
     disabled_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     approved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     welcomed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    session_version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
 
 
 class Task(Base):
@@ -38,6 +39,7 @@ class Task(Base):
     day_date: Mapped[date | None] = mapped_column(Date, index=True, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     subtasks: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
     effort: Mapped[str | None] = mapped_column(String(1), nullable=True)
     carried_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)

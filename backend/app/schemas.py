@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field, model_validator
 
 
 EffortLevel = Literal["S", "M", "L"]
+TaskStatus = Literal["pending", "active", "done", "skipped"]
 
 
 class LoginRequest(BaseModel):
@@ -69,7 +70,7 @@ class TaskUpdate(BaseModel):
     title: str | None = None
     notes: str | None = None
     is_frog: bool | None = None
-    status: str | None = None
+    status: TaskStatus | None = None
     day_date: date | None = None  # explicit null = demote to backlog
     effort: EffortLevel | None = None
     subtasks: list[SubtaskItem] | None = None  # full-list replace

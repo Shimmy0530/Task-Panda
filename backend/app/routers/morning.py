@@ -14,6 +14,10 @@ router = APIRouter(prefix="/api/morning", tags=["morning"])
 STALE_BACKLOG_DAYS = 30
 
 
+def _visible_tasks(query):
+    return query.filter(Task.deleted_at.is_(None))
+
+
 class CarryAction(BaseModel):
     task_id: int
     action: Literal["carry", "drop", "done"]
@@ -53,7 +57,7 @@ def morning_state(
     """Return everything the wizard needs."""
     yesterday = Date.fromordinal(today.toordinal() - 1)
     yest_open = (
-        db.query(Task)
+        _visible_tasks(db.query(Task))
         .filter(
             Task.user_id == user.id,
             Task.day_date == yesterday,
@@ -63,14 +67,14 @@ def morning_state(
         .all()
     )
     today_tasks = (
-        db.query(Task)
+        _visible_tasks(db.query(Task))
         .filter(Task.user_id == user.id, Task.day_date == today)
         .order_by(Task.is_frog.desc(), Task.created_at.asc())
         .all()
     )
 
     backlog = (
-        db.query(Task)
+        _visible_tasks(db.query(Task))
         .filter(Task.user_id == user.id, Task.day_date.is_(None))
         .order_by(Task.created_at.desc())
         .all()
@@ -106,7 +110,7 @@ def complete(
     # 1. Yesterday actions — carry prunes done subtasks and bumps carried_count.
     for ca in payload.yesterday_actions:
         task = (
-            db.query(Task)
+            _visible_tasks(db.query(Task))
             .filter(Task.id == ca.task_id, Task.user_id == user.id)
             .first()
         )
@@ -131,7 +135,7 @@ def complete(
 
     # 2. Frog handling — replace any existing frog for today.
     existing_today_frog = (
-        db.query(Task)
+        _visible_tasks(db.query(Task))
         .filter(
             Task.user_id == user.id,
             Task.day_date == today,
@@ -166,7 +170,7 @@ def complete(
     # 3. Supporting tasks (max 2; skip duplicates).
     today_titles = {
         t.title.lower()
-        for t in db.query(Task).filter(Task.user_id == user.id, Task.day_date == today).all()
+        for t in _visible_tasks(db.query(Task)).filter(Task.user_id == user.id, Task.day_date == today).all()
     }
 
     added = 0
@@ -187,7 +191,7 @@ def complete(
     # 4. Pull selected backlog items into today (resets carried_count).
     if payload.pull_from_backlog:
         pulls = (
-            db.query(Task)
+            _visible_tasks(db.query(Task))
             .filter(
                 Task.id.in_(payload.pull_from_backlog),
                 Task.user_id == user.id,
@@ -202,7 +206,7 @@ def complete(
 
     # Day cap of 5 enforced over the union of carries + frog + supporting + pulls.
     today_count = (
-        db.query(Task).filter(Task.user_id == user.id, Task.day_date == today).count()
+        _visible_tasks(db.query(Task)).filter(Task.user_id == user.id, Task.day_date == today).count()
     )
     if today_count > 5:
         db.rollback()
@@ -214,7 +218,7 @@ def complete(
     # 5. Stale-backlog acknowledgements.
     if payload.kept_stale_ids:
         kept = (
-            db.query(Task)
+            _visible_tasks(db.query(Task))
             .filter(
                 Task.id.in_(payload.kept_stale_ids),
                 Task.user_id == user.id,
@@ -227,7 +231,7 @@ def complete(
     if payload.dropped_stale_ids:
         # Hard delete — user-acknowledged trash.
         dropped = (
-            db.query(Task)
+            _visible_tasks(db.query(Task))
             .filter(
                 Task.id.in_(payload.dropped_stale_ids),
                 Task.user_id == user.id,
@@ -236,7 +240,7 @@ def complete(
             .all()
         )
         for t in dropped:
-            db.delete(t)
+            t.deleted_at = now
 
     # 6. Mark ritual done.
     user.last_ritual_date = today

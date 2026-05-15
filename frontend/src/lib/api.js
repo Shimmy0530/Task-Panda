@@ -6,6 +6,23 @@ export function localToday() {
   return new Date().toLocaleDateString('en-CA');
 }
 
+function localDayBounds(day) {
+  const [year, month, date] = day.split('-').map(Number);
+  const start = new Date(year, month - 1, date);
+  const end = new Date(year, month - 1, date + 1);
+  return { start: start.toISOString(), end: end.toISOString() };
+}
+
+function localWeekRanges(today) {
+  const [year, month, date] = today.split('-').map(Number);
+  const anchor = new Date(year, month - 1, date);
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate() - (6 - i));
+    const day = d.toLocaleDateString('en-CA');
+    return { day, ...localDayBounds(day) };
+  });
+}
+
 // Returns null when valid, an error string otherwise.
 export function validateNewPassword(pw, confirm) {
   if (!pw || pw.length < 12) return 'password must be at least 12 chars';
@@ -67,7 +84,7 @@ export const tasks = {
   create: (t) => api.post('/api/tasks', t),
   update: (id, patch) => api.patch(`/api/tasks/${id}`, patch),
   remove: (id) => api.del(`/api/tasks/${id}`),
-  copy: (id) => api.post(`/api/tasks/${id}/copy`),
+  copy: (id, today) => api.post(`/api/tasks/${id}/copy?today=${today || localToday()}`),
   backlog: () => api.get('/api/tasks/backlog'),
   appendDictation: (id, outline, transcript) =>
     api.post(`/api/tasks/${id}/dictation`, { outline, transcript })
@@ -77,15 +94,25 @@ export const sessions = {
   start: (task_id, secs) =>
     api.post('/api/sessions/start', { task_id, duration_planned_seconds: secs }),
   end: (id, completed = true) => api.post(`/api/sessions/${id}/end?completed=${completed}`),
-  today: () => api.get('/api/sessions/today'),
-  week: () => api.get('/api/sessions/week')
+  today: (today) => {
+    const bounds = localDayBounds(today || localToday());
+    const params = new URLSearchParams(bounds);
+    return api.get(`/api/sessions/today?${params.toString()}`);
+  },
+  week: (today) => {
+    const params = new URLSearchParams({
+      ranges: JSON.stringify(localWeekRanges(today || localToday()))
+    });
+    return api.get(`/api/sessions/week?${params.toString()}`);
+  }
 };
 
 export const captures = {
   list: () => api.get('/api/capture'),
   create: (content) => api.post('/api/capture', { content }),
   process: (id) => api.patch(`/api/capture/${id}`),
-  convert: (id, target) => api.post(`/api/capture/${id}/convert`, { target })
+  convert: (id, target, today) =>
+    api.post(`/api/capture/${id}/convert?today=${today || localToday()}`, { target })
 };
 
 export const llm = {

@@ -1,14 +1,19 @@
+import logging
+
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from ..auth import current_user
+from ..config import AIProviderUnavailable
 from ..db import get_db
 from ..llm import outline_from_transcript
 from ..models import Task, User
 from ..transcribe import transcribe_audio
+from .tasks import _visible_tasks
 
 router = APIRouter(prefix="/api", tags=["voice"])
+logger = logging.getLogger(__name__)
 
 MAX_AUDIO_BYTES = 25 * 1024 * 1024  # Groq Whisper limit
 
@@ -30,8 +35,12 @@ async def transcribe_endpoint(
             file.filename or "recording.webm",
             file.content_type or "audio/webm",
         )
-    except Exception as e:  # noqa: BLE001
-        raise HTTPException(503, f"Transcription failed: {e}")
+    except AIProviderUnavailable:
+        logger.info("Transcription requested without AI provider configuration")
+        raise HTTPException(503, "Transcription service unavailable. Try again later.")
+    except Exception:  # noqa: BLE001
+        logger.exception("Transcription provider request failed")
+        raise HTTPException(503, "Transcription service unavailable. Try again later.")
 
     return {
         "transcript": result.get("text", "").strip(),
@@ -54,7 +63,7 @@ async def outline_endpoint(
     task_title = task_notes = None
     if payload.task_id:
         task = (
-            db.query(Task)
+            _visible_tasks(db.query(Task))
             .filter(Task.id == payload.task_id, Task.user_id == user.id)
             .first()
         )
@@ -63,6 +72,10 @@ async def outline_endpoint(
             task_notes = task.notes
     try:
         outline = await outline_from_transcript(payload.transcript, task_title, task_notes)
-    except Exception as e:  # noqa: BLE001
-        raise HTTPException(503, f"LLM unavailable: {e}")
+    except AIProviderUnavailable:
+        logger.info("Outline requested without AI provider configuration")
+        raise HTTPException(503, "AI service unavailable. Try again later.")
+    except Exception:  # noqa: BLE001
+        logger.exception("Outline provider request failed")
+        raise HTTPException(503, "AI service unavailable. Try again later.")
     return {"outline": outline}
