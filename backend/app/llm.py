@@ -1,6 +1,6 @@
 import json
 import httpx
-from .config import settings
+from .config import require_ai_provider_configured, settings
 
 CHAT_PATH = "/chat/completions"
 
@@ -38,6 +38,7 @@ Rules:
 
 
 async def _chat(messages: list[dict], max_tokens: int = 200, temperature: float = 0.4) -> str:
+    require_ai_provider_configured()
     async with httpx.AsyncClient(timeout=settings.LLM_TIMEOUT) as client:
         r = await client.post(
             f"{settings.LLM_BASE_URL}{CHAT_PATH}",

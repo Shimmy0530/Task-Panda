@@ -8,6 +8,7 @@ from ..auth import (
     equalize_login_timing,
     hash_password,
     issue_jwt,
+    revoke_user_sessions,
     slow_fail,
     user_dict,
     verify_user_password,
@@ -69,7 +70,7 @@ def setup(payload: SetupRequest, response: Response, db: Session = Depends(get_d
         db.rollback()
         raise HTTPException(status.HTTP_409_CONFLICT, "Setup already complete")
     db.refresh(user)
-    _set_session_cookie(response, issue_jwt(user.id))
+    _set_session_cookie(response, issue_jwt(user))
     return {"ok": True, "user": user_dict(user)}
 
 
@@ -122,7 +123,7 @@ async def login(payload: LoginRequest, response: Response, db: Session = Depends
             "Account pending admin approval.",
         )
 
-    _set_session_cookie(response, issue_jwt(user.id))
+    _set_session_cookie(response, issue_jwt(user))
     return {"ok": True, "user": user_dict(user)}
 
 
@@ -151,6 +152,7 @@ def mark_welcomed(
 @router.post("/change-password")
 async def change_password(
     payload: ChangePasswordRequest,
+    response: Response,
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
@@ -158,7 +160,10 @@ async def change_password(
         await slow_fail()
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Current password incorrect")
     user.password_hash = hash_password(payload.new_password)
+    revoke_user_sessions(user)
     db.commit()
+    db.refresh(user)
+    _set_session_cookie(response, issue_jwt(user))
     return {"ok": True}
 
 
@@ -178,6 +183,7 @@ def totp_setup(user: User = Depends(current_user)):
 @router.post("/totp/confirm")
 def totp_confirm(
     payload: TotpConfirmRequest,
+    response: Response,
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
@@ -187,14 +193,18 @@ def totp_confirm(
     if not pyotp.TOTP(pending).verify(payload.code, valid_window=1):
         raise HTTPException(400, "Code didn't match. Try again.")
     user.totp_secret = pending
+    revoke_user_sessions(user)
     _PENDING_TOTP.pop(user.id, None)
     db.commit()
+    db.refresh(user)
+    _set_session_cookie(response, issue_jwt(user))
     return {"ok": True}
 
 
 @router.post("/totp/disable")
 async def totp_disable(
     payload: TotpDisableRequest,
+    response: Response,
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
@@ -204,5 +214,8 @@ async def totp_disable(
         await slow_fail()
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Password incorrect")
     user.totp_secret = None
+    revoke_user_sessions(user)
     db.commit()
+    db.refresh(user)
+    _set_session_cookie(response, issue_jwt(user))
     return {"ok": True}

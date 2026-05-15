@@ -1,11 +1,12 @@
 import httpx
-from .config import settings
+from .config import require_ai_provider_configured, settings
 
 TRANSCRIBE_PATH = "/audio/transcriptions"
 
 
 async def transcribe_audio(audio_bytes: bytes, filename: str, mimetype: str) -> dict:
     """Send audio bytes to Groq Whisper. Returns dict with 'text', 'duration', 'language'."""
+    require_ai_provider_configured()
     async with httpx.AsyncClient(timeout=120) as client:
         files = {"file": (filename, audio_bytes, mimetype)}
         data = {

@@ -1,4 +1,5 @@
-from datetime import datetime, date as Date, timedelta
+import json
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session as OrmSession
@@ -7,8 +8,15 @@ from ..auth import current_user
 from ..db import get_db
 from ..models import Session, Task, User
 from ..schemas import SessionOut, SessionStart
+from .tasks import _visible_tasks
 
 router = APIRouter(prefix="/api/sessions", tags=["sessions"])
+
+
+def _to_naive_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value
+    return value.astimezone(timezone.utc).replace(tzinfo=None)
 
 
 @router.post("/start", response_model=SessionOut)
@@ -17,7 +25,11 @@ def start_session(
     user: User = Depends(current_user),
     db: OrmSession = Depends(get_db),
 ):
-    task = db.query(Task).filter(Task.id == payload.task_id, Task.user_id == user.id).first()
+    task = (
+        _visible_tasks(db.query(Task))
+        .filter(Task.id == payload.task_id, Task.user_id == user.id)
+        .first()
+    )
     if not task:
         raise HTTPException(404, "Task not found")
 
@@ -64,15 +76,16 @@ def end_session(
 
 @router.get("/today")
 def today_summary(
+    start: datetime,
+    end: datetime,
     user: User = Depends(current_user),
     db: OrmSession = Depends(get_db),
 ):
-    today = Date.today()
-    start = datetime.combine(today, datetime.min.time())
-
+    start = _to_naive_utc(start)
+    end = _to_naive_utc(end)
     rows = (
         db.query(Session)
-        .filter(Session.user_id == user.id, Session.started_at >= start)
+        .filter(Session.user_id == user.id, Session.started_at >= start, Session.started_at < end)
         .all()
     )
 
@@ -83,7 +96,7 @@ def today_summary(
         secs = int((end - r.started_at).total_seconds())
         total_seconds += secs
         task = db.get(Task, r.task_id)
-        if task and task.is_frog:
+        if task and task.deleted_at is None and task.is_frog:
             frog_seconds += secs
 
     return {
@@ -96,16 +109,27 @@ def today_summary(
 
 @router.get("/week")
 def week_summary(
+    ranges: str,
     user: User = Depends(current_user),
     db: OrmSession = Depends(get_db),
 ):
     """Per-day frog-vs-other ratio for the last 7 days."""
-    today = Date.today()
     out = []
-    for i in range(6, -1, -1):
-        d = today - timedelta(days=i)
-        start = datetime.combine(d, datetime.min.time())
-        end = start + timedelta(days=1)
+    try:
+        parsed_ranges = json.loads(ranges)
+    except json.JSONDecodeError:
+        raise HTTPException(400, "Invalid day ranges")
+
+    if not isinstance(parsed_ranges, list) or len(parsed_ranges) != 7:
+        raise HTTPException(400, "Expected 7 day ranges")
+
+    for item in parsed_ranges:
+        try:
+            day = item["day"]
+            start = _to_naive_utc(datetime.fromisoformat(item["start"].replace("Z", "+00:00")))
+            end = _to_naive_utc(datetime.fromisoformat(item["end"].replace("Z", "+00:00")))
+        except (KeyError, TypeError, ValueError):
+            raise HTTPException(400, "Invalid day range")
         rows = (
             db.query(Session)
             .filter(Session.user_id == user.id, Session.started_at >= start, Session.started_at < end)
@@ -117,10 +141,10 @@ def week_summary(
             secs = int((te - r.started_at).total_seconds())
             total += secs
             task = db.get(Task, r.task_id)
-            if task and task.is_frog:
+            if task and task.deleted_at is None and task.is_frog:
                 frog += secs
         out.append({
-            "day": d.isoformat(),
+            "day": day,
             "total_seconds": total,
             "frog_seconds": frog,
         })

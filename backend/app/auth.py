@@ -29,9 +29,14 @@ def equalize_login_timing(plaintext: str) -> None:
         pass
 
 
-def issue_jwt(user_id: int) -> str:
+def issue_jwt(user: User | int, session_version: int | None = None) -> str:
+    user_id = user.id if isinstance(user, User) else user
+    token_session_version = (
+        user.session_version if isinstance(user, User) else session_version or 1
+    )
     payload = {
         "sub": str(user_id),
+        "sv": token_session_version,
         "iat": datetime.utcnow(),
         "exp": datetime.utcnow() + timedelta(days=JWT_TTL_DAYS),
         "jti": secrets.token_hex(8),
@@ -39,10 +44,10 @@ def issue_jwt(user_id: int) -> str:
     return jwt.encode(payload, settings.JWT_SECRET, algorithm=JWT_ALG)
 
 
-def decode_jwt(token: str) -> int:
+def decode_jwt(token: str) -> tuple[int, int]:
     try:
         payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[JWT_ALG])
-        return int(payload["sub"])
+        return int(payload["sub"]), int(payload.get("sv", 1))
     except (JWTError, KeyError, ValueError):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid session")
 
@@ -53,12 +58,14 @@ def current_user(
 ) -> User:
     if not session:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Not authenticated")
-    user_id = decode_jwt(session)
+    user_id, token_session_version = decode_jwt(session)
     user = db.get(User, user_id)
     if not user:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "User not found")
     if user.disabled_at is not None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Account disabled")
+    if token_session_version != user.session_version:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid session")
     if user.approved_at is None:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Account pending approval")
     return user
@@ -68,6 +75,10 @@ def require_admin(user: User = Depends(current_user)) -> User:
     if not user.is_admin:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Admin only")
     return user
+
+
+def revoke_user_sessions(user: User) -> None:
+    user.session_version = (user.session_version or 0) + 1
 
 
 def user_dict(user: User) -> dict:

@@ -1,3 +1,4 @@
+import logging
 from datetime import date as Date, datetime, timedelta
 from uuid import uuid4
 
@@ -6,6 +7,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from ..auth import current_user
+from ..config import AIProviderUnavailable
 from ..db import get_db
 from ..llm import first_action, subtasks_from_task, weekly_review
 from ..models import Capture, Session as FocusSession, Task, User
@@ -18,10 +20,11 @@ from ..schemas import (
     FirstActionResponse,
     SubtaskItem,
 )
-from .tasks import _enforce_day_caps
+from .tasks import _enforce_day_caps, _visible_tasks
 
 capture_router = APIRouter(prefix="/api/capture", tags=["capture"])
 llm_router = APIRouter(prefix="/api/llm", tags=["llm"])
+logger = logging.getLogger(__name__)
 
 
 @capture_router.post("", response_model=CaptureOut, status_code=201)
@@ -68,6 +71,7 @@ def mark_processed(
 def convert_capture(
     cap_id: int,
     payload: CaptureConvertRequest,
+    today: Date | None = None,
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
@@ -81,7 +85,9 @@ def convert_capture(
     if capture.processed:
         raise HTTPException(409, "Already processed")
 
-    target_day = Date.today() if payload.target == "today" else None
+    if payload.target == "today" and today is None:
+        raise HTTPException(400, "today is required")
+    target_day = today if payload.target == "today" else None
     if target_day is not None:
         _enforce_day_caps(db, user, target_day, is_frog_target=False)
 
@@ -112,8 +118,12 @@ async def first_action_endpoint(
 ):
     try:
         action = await first_action(payload.title, payload.notes)
-    except Exception as e:
-        raise HTTPException(503, f"LLM unavailable: {e}")
+    except AIProviderUnavailable:
+        logger.info("First-action requested without AI provider configuration")
+        raise HTTPException(503, "AI service unavailable. Try again later.")
+    except Exception:
+        logger.exception("First-action provider request failed")
+        raise HTTPException(503, "AI service unavailable. Try again later.")
     return FirstActionResponse(action=action)
 
 
@@ -131,13 +141,21 @@ async def subtasks_endpoint(
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    task = db.query(Task).filter(Task.id == payload.task_id, Task.user_id == user.id).first()
+    task = (
+        _visible_tasks(db.query(Task))
+        .filter(Task.id == payload.task_id, Task.user_id == user.id)
+        .first()
+    )
     if not task:
         raise HTTPException(404, "Not found")
     try:
         items = await subtasks_from_task(task.title, task.notes)
-    except Exception as e:
-        raise HTTPException(503, f"LLM unavailable: {e}")
+    except AIProviderUnavailable:
+        logger.info("Subtasks requested without AI provider configuration")
+        raise HTTPException(503, "AI service unavailable. Try again later.")
+    except Exception:
+        logger.exception("Subtasks provider request failed")
+        raise HTTPException(503, "AI service unavailable. Try again later.")
     if items is None:
         raise HTTPException(503, "AI didn't return a parseable list. Try again.")
     return SubtasksResponse(
@@ -179,11 +197,11 @@ async def weekly_review_endpoint(
         secs = int((end - s.started_at).total_seconds())
         total_seconds += secs
         t = db.get(Task, s.task_id)
-        if t and t.is_frog:
+        if t and t.deleted_at is None and t.is_frog:
             frog_seconds += secs
 
     completed = (
-        db.query(Task)
+        _visible_tasks(db.query(Task))
         .filter(
             Task.user_id == user.id,
             Task.completed_at.isnot(None),
@@ -192,7 +210,7 @@ async def weekly_review_endpoint(
         .all()
     )
     carried = (
-        db.query(Task)
+        _visible_tasks(db.query(Task))
         .filter(Task.user_id == user.id, Task.carried_count > 0)
         .order_by(Task.carried_count.desc())
         .limit(15)
@@ -212,8 +230,12 @@ async def weekly_review_endpoint(
 
     try:
         summary = await weekly_review(events)
-    except Exception as e:
-        raise HTTPException(503, f"LLM unavailable: {e}")
+    except AIProviderUnavailable:
+        logger.info("Weekly review requested without AI provider configuration")
+        raise HTTPException(503, "AI service unavailable. Try again later.")
+    except Exception:
+        logger.exception("Weekly review provider request failed")
+        raise HTTPException(503, "AI service unavailable. Try again later.")
 
     # Don't cache degenerate output (refusals, empty strings, missing structure).
     if not summary or not summary.strip() or "## " not in summary:
