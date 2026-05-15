@@ -99,7 +99,18 @@ npx playwright test                      # run all specs on both viewport projec
 npx playwright test --project=chromium-desktop   # one project only
 ```
 
-No backend unit tests yet — backend behavior is exercised transitively through the Playwright specs. When adding a new feature with non-trivial UI, drop a `*.spec.js` next to the existing ones following the same pattern (reset relevant DB state in `beforeEach` via `docker compose exec backend python -c "..."`).
+Backend has a pytest suite in `backend/tests/` (auth, session-invalidation, data-safety). The Dockerfile does NOT install pytest, so `docker exec task-panda-backend pytest` fails. Run via a one-shot container instead:
+
+```powershell
+docker run --rm -v C:/path/to/backend:/app -w /app -e JWT_SECRET=test-secret `
+  task-panda-backend:latest sh -c "pip install -q pytest pytest-asyncio && python -m pytest"
+```
+
+Use PowerShell for the `-v` flag — Git Bash mangles `/app` to `C:/Program Files/Git/app`. Tests share an isolated SQLite file under `%TEMP%/task-panda-tests.db` and use an autouse `reset_db` fixture.
+
+**conftest.py rule:** set `DATABASE_URL` (and `JWT_SECRET`) in `os.environ` BEFORE any `from app...` import — `app.db` calls `create_engine(settings.DATABASE_URL)` at module-import time, so a late override binds the engine to the prod path. The existing `backend/tests/conftest.py` enforces this; don't reorder its top.
+
+When adding a new feature with non-trivial UI, drop a `*.spec.js` next to the existing Playwright specs following the same pattern (reset relevant DB state in `beforeEach` via `docker compose exec backend python -c "..."`). For backend-only logic, prefer a pytest test in `backend/tests/`.
 
 ### Validating compose YAML locally
 

@@ -8,7 +8,7 @@ Each morning you pick one boring-important task, up to four supporting tasks, an
 
 - **Frontend:** SvelteKit PWA + Tailwind, `@sveltejs/adapter-node`, dark warm aesthetic
 - **Backend:** FastAPI + SQLAlchemy + SQLite
-- **Auth:** username + bcrypt password + per-user optional TOTP 2FA, JWT in HttpOnly cookie. First run with an empty DB turns the login page into a one-time signup form — the first account becomes the admin. From there the `/admin` page handles user creation, password reset, and disable/enable.
+- **Auth:** username + bcrypt password + per-user optional TOTP 2FA, JWT in HttpOnly cookie. First run with an empty DB turns the login page into a one-time signup form — the first account becomes the admin. After that, anyone can open-register a new account, but it lands pending until an admin approves it from `/admin`. Admins can also create pre-approved users, reset passwords, and disable/enable accounts.
 - **LLM + STT:** Groq (OpenAI-compatible chat completions, Whisper) — provider-swappable
 - **Reverse proxy:** runs in front of the compose stack and terminates TLS. This README shows a Caddy setup for PC use; the repo also ships an nginx vhost template at `deploy/nginx.example.conf` for a public VM.
 
@@ -136,8 +136,8 @@ For backend-only changes, append `backend` to the compose command to skip the sl
 | `/dictate?task=<id>` | Record → Groq Whisper → LLM outline → save to task |
 | `/capture` | Inbox of intrusive thoughts (`⌘.` from anywhere) |
 | `/review` | Daily + 7-day ratio + AI weekly summary (cached server-side per day) |
-| `/settings` | Stuck-task threshold, change password, enroll/disable authenticator |
-| `/admin` | (admin role only) List users, create users, reset password, disable/enable accounts |
+| `/settings` | Stuck-task threshold, change password, enroll/disable authenticator, replay welcome tour |
+| `/admin` | (admin role only) List users, approve pending registrations, create pre-approved users, reset password, disable/enable accounts |
 
 ## Hotkeys
 
@@ -226,7 +226,7 @@ For local PC use the same command works pointing at your local `./data/`.
 
 ## Users and passwords
 
-Day-to-day: log in and change your own password from `/settings → security`. Admins can also create new users, reset any non-admin user's password, and disable/enable accounts from `/admin`. Other admins manage their own passwords — admins can't reset each other.
+Day-to-day: log in and change your own password from `/settings → security`. Admins can also create pre-approved users, approve pending open registrations, reset any non-admin user's password, and disable/enable accounts from `/admin`. Other admins manage their own passwords — admins can't reset each other.
 
 `bin/hash-password.py` is kept around for one emergency case: an admin who has lost their password and has no other admin to reset it. SSH in, generate a new hash, and update `users.password_hash` directly with `sqlite3`.
 
@@ -245,7 +245,7 @@ If you want LLM and STT on different vendors with separate keys, fork `backend/a
 
 ## Scope
 
-Self-hosted, small-team friendly. The first sign-up on an empty install becomes the admin; that admin creates additional users from `/admin`. There's no open signup after the first run, no email, no password-reset link — just admin-issued accounts and self-service password / TOTP changes from `/settings`. Auth is a bcrypt password plus optional per-user 2FA. The backend's only outbound calls are to your configured LLM provider.
+Self-hosted, small-team friendly. The first sign-up on an empty install becomes the admin. After that, open registration is allowed but new accounts land pending admin approval — the admin can also create pre-approved users from `/admin`. No email, no password-reset link — just admin-issued/approved accounts and self-service password / TOTP changes from `/settings`. Auth is a bcrypt password plus optional per-user 2FA. The backend's only outbound calls are to your configured LLM provider.
 
 ## Roadmap
 
