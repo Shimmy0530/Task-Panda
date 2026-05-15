@@ -103,6 +103,7 @@ def disable_user(
         raise HTTPException(404, "Not found")
     if user.disabled_at is None:
         user.disabled_at = datetime.utcnow()
+        revoke_user_sessions(user)
         db.commit()
     return _to_out(user)
 

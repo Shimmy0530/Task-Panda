@@ -20,7 +20,7 @@ function shell(cmd) {
 
 export default async function globalSetup() {
   const jwt = shell(
-    `docker compose exec -T backend python -c "from app.auth import issue_jwt; from app.db import SessionLocal; from app.models import User; db=SessionLocal(); u=db.query(User).filter(User.username=='${USERNAME}').first(); db.query(User).update({User.welcomed_at: None}); db.commit(); print(issue_jwt(u.id))"`
+    `docker compose exec -T backend python -c "from app.auth import issue_jwt; from app.db import SessionLocal; from app.models import User; db=SessionLocal(); u=db.query(User).filter(User.username=='${USERNAME}').first(); db.query(User).update({User.welcomed_at: None}); db.commit(); db.refresh(u); print(issue_jwt(u))"`
   );
 
   if (!jwt) throw new Error('globalSetup: empty JWT from backend');

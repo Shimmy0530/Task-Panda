@@ -193,11 +193,13 @@ async def weekly_review_endpoint(
     total_seconds = 0
     frog_seconds = 0
     for s in sessions:
-        end = s.ended_at or datetime.utcnow()
-        secs = int((end - s.started_at).total_seconds())
-        total_seconds += secs
         t = db.get(Task, s.task_id)
-        if t and t.deleted_at is None and t.is_frog:
+        if not t or t.deleted_at is not None:
+            continue
+        session_end = s.ended_at or datetime.utcnow()
+        secs = int((session_end - s.started_at).total_seconds())
+        total_seconds += secs
+        if t.is_frog:
             frog_seconds += secs
 
     completed = (

@@ -91,16 +91,22 @@ def today_summary(
 
     total_seconds = 0
     frog_seconds = 0
+    counted_sessions = 0
     for r in rows:
-        end = r.ended_at or datetime.utcnow()
-        secs = int((end - r.started_at).total_seconds())
-        total_seconds += secs
         task = db.get(Task, r.task_id)
-        if task and task.deleted_at is None and task.is_frog:
+        # Soft-deleted task → its sessions are hidden from the UI; hide them
+        # from the summary too so total/frog share the same denominator.
+        if not task or task.deleted_at is not None:
+            continue
+        session_end = r.ended_at or datetime.utcnow()
+        secs = int((session_end - r.started_at).total_seconds())
+        total_seconds += secs
+        counted_sessions += 1
+        if task.is_frog:
             frog_seconds += secs
 
     return {
-        "sessions": len(rows),
+        "sessions": counted_sessions,
         "total_seconds": total_seconds,
         "frog_seconds": frog_seconds,
         "frog_ratio": (frog_seconds / total_seconds) if total_seconds else 0.0,
@@ -137,11 +143,13 @@ def week_summary(
         )
         total = frog = 0
         for r in rows:
-            te = r.ended_at or datetime.utcnow()
-            secs = int((te - r.started_at).total_seconds())
-            total += secs
             task = db.get(Task, r.task_id)
-            if task and task.deleted_at is None and task.is_frog:
+            if not task or task.deleted_at is not None:
+                continue
+            session_end = r.ended_at or datetime.utcnow()
+            secs = int((session_end - r.started_at).total_seconds())
+            total += secs
+            if task.is_frog:
                 frog += secs
         out.append({
             "day": day,

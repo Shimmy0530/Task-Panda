@@ -29,14 +29,10 @@ def equalize_login_timing(plaintext: str) -> None:
         pass
 
 
-def issue_jwt(user: User | int, session_version: int | None = None) -> str:
-    user_id = user.id if isinstance(user, User) else user
-    token_session_version = (
-        user.session_version if isinstance(user, User) else session_version or 1
-    )
+def issue_jwt(user: User) -> str:
     payload = {
-        "sub": str(user_id),
-        "sv": token_session_version,
+        "sub": str(user.id),
+        "sv": user.session_version,
         "iat": datetime.utcnow(),
         "exp": datetime.utcnow() + timedelta(days=JWT_TTL_DAYS),
         "jti": secrets.token_hex(8),
@@ -47,7 +43,7 @@ def issue_jwt(user: User | int, session_version: int | None = None) -> str:
 def decode_jwt(token: str) -> tuple[int, int]:
     try:
         payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[JWT_ALG])
-        return int(payload["sub"]), int(payload.get("sv", 1))
+        return int(payload["sub"]), int(payload["sv"])
     except (JWTError, KeyError, ValueError):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid session")
 

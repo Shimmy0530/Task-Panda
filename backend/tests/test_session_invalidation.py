@@ -1,36 +1,18 @@
-import os
-from pathlib import Path
-
-os.environ.setdefault("JWT_SECRET", "test-secret")
-os.environ.setdefault("LLM_API_KEY", "test-llm-key")
-TEST_DB_PATH = Path(os.environ.get("TEMP", "C:/tmp")) / "task-panda-session-tests.db"
-os.environ.setdefault("DATABASE_URL", f"sqlite:///{TEST_DB_PATH.as_posix()}")
-
 import pyotp
 import pytest
 from fastapi.testclient import TestClient
+from jose import jwt
 from sqlalchemy import text
 
-from app.auth import hash_password
-from app.db import SessionLocal, engine, init_db
+from app.auth import JWT_ALG, hash_password
+from app.config import settings
+from app.db import engine, init_db
 from app.main import app
 from app.models import Base
-from app.routers import auth as auth_router
 
 
 ADMIN_PASSWORD = "admin-password-123"
 USER_PASSWORD = "user-password-123"
-
-
-@pytest.fixture(autouse=True)
-def reset_db():
-    Base.metadata.drop_all(bind=engine)
-    engine.dispose()
-    if TEST_DB_PATH.exists():
-        TEST_DB_PATH.unlink()
-    auth_router._PENDING_TOTP.clear()
-    init_db()
-    yield
 
 
 @pytest.fixture()
@@ -89,6 +71,43 @@ def test_password_change_invalidates_existing_session_and_allows_new_login(clien
     _assert_cookie_rejected(old_cookie)
     new_cookie = _login(client, "admin", "new-admin-password-123")
     assert new_cookie != old_cookie
+
+
+def test_change_password_response_cookie_carries_bumped_session_version(client):
+    """The new cookie issued by /change-password must validate against /me — guards
+    against a regression where issue_jwt reads a stale pre-rotation session_version."""
+    _setup_admin(client)
+    old_cookie = _login(client, "admin", ADMIN_PASSWORD)
+
+    authed = _authenticated_client(old_cookie)
+    response = authed.post(
+        "/api/auth/change-password",
+        json={
+            "current_password": ADMIN_PASSWORD,
+            "new_password": "new-admin-password-123",
+        },
+    )
+    authed.close()
+    assert response.status_code == 200
+
+    rotated_cookie = response.cookies.get("focus_session")
+    assert rotated_cookie and rotated_cookie != old_cookie
+
+    with _authenticated_client(rotated_cookie) as fresh:
+        me = fresh.get("/api/auth/me")
+    assert me.status_code == 200
+    assert me.json()["username"] == "admin"
+
+
+def test_token_without_session_version_is_rejected(client):
+    _setup_admin(client)
+    legacy_token = jwt.encode({"sub": "1"}, settings.JWT_SECRET, algorithm=JWT_ALG)
+
+    with _authenticated_client(legacy_token) as stale_client:
+        response = stale_client.get("/api/auth/me")
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Invalid session"
 
 
 def test_admin_password_reset_invalidates_target_users_existing_session(client):
