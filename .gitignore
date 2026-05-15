@@ -42,6 +42,6 @@ adhd-enhancement-review.md
 docker-compose.override.yml
 Caddyfile.local
 
-# Brand source files — exported variants live in focus/frontend/static/
+# Brand source files — exported variants live in frontend/static/
 brand/
 .claude/skills/.skip

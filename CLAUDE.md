@@ -169,6 +169,10 @@ All transparent-background PNGs derived from `brand/TaskPandaLogoIdea2_*.png`. T
 
 Server runs UTC. The frontend's "today" must always be browser-local. Any frontend call that filters by day passes `localToday()` from `src/lib/api.js` (defined as `new Date().toLocaleDateString('en-CA')`). Never let the backend fall back to its own `Date.today()` for user-facing date filters — they will diverge across midnight UTC and silently hide tasks.
 
+#### Timezone discipline
+
+Server runs UTC. The frontend's "today" must always be browser-local. Any frontend call that filters by day passes `localToday()` from `src/lib/api.js` (defined as `new Date().toLocaleDateString('en-CA')`). Never let the backend fall back to its own `Date.today()` for user-facing date filters — they will diverge across midnight UTC and silently hide tasks.
+
 ### Domain invariants (enforced server-side)
 
 - **Max 5 tasks per `day_date`**, **max 1 frog (`is_frog=true`) per day**. `tasks.py` raises 400 on violation.
