@@ -21,6 +21,7 @@ def reset_db():
     if TEST_DB_PATH.exists():
         TEST_DB_PATH.unlink()
     auth_router._PENDING_TOTP.clear()
+    auth_router._REGISTER_ATTEMPTS.clear()
     init_db()
     yield
 

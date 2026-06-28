@@ -1,6 +1,6 @@
 import asyncio
 import secrets
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 import bcrypt
 import pyotp
@@ -8,6 +8,7 @@ from fastapi import Cookie, Depends, HTTPException, status
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 
+from .clock import utcnow
 from .config import settings
 from .db import get_db
 from .models import User
@@ -33,8 +34,8 @@ def issue_jwt(user: User) -> str:
     payload = {
         "sub": str(user.id),
         "sv": user.session_version,
-        "iat": datetime.utcnow(),
-        "exp": datetime.utcnow() + timedelta(days=JWT_TTL_DAYS),
+        "iat": utcnow(),
+        "exp": utcnow() + timedelta(days=JWT_TTL_DAYS),
         "jti": secrets.token_hex(8),
     }
     return jwt.encode(payload, settings.JWT_SECRET, algorithm=JWT_ALG)

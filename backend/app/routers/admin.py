@@ -1,10 +1,9 @@
-from datetime import datetime
-
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..auth import hash_password, require_admin, revoke_user_sessions
+from ..clock import utcnow
 from ..db import get_db
 from ..models import User
 from ..schemas import AdminCreateUserRequest, AdminResetPasswordRequest
@@ -43,7 +42,7 @@ def create_user(
         username=payload.username,
         password_hash=hash_password(payload.password),
         is_admin=payload.is_admin,
-        approved_at=datetime.utcnow(),
+        approved_at=utcnow(),
     )
     db.add(user)
     try:
@@ -65,7 +64,7 @@ def approve_user(
     if not user:
         raise HTTPException(404, "Not found")
     if user.approved_at is None:
-        user.approved_at = datetime.utcnow()
+        user.approved_at = utcnow()
         db.commit()
     return _to_out(user)
 
@@ -102,7 +101,7 @@ def disable_user(
     if not user:
         raise HTTPException(404, "Not found")
     if user.disabled_at is None:
-        user.disabled_at = datetime.utcnow()
+        user.disabled_at = utcnow()
         revoke_user_sessions(user)
         db.commit()
     return _to_out(user)

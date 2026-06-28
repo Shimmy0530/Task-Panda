@@ -1,4 +1,4 @@
-from datetime import date as Date, datetime, timedelta
+from datetime import date as Date, timedelta
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from ..auth import current_user
+from ..clock import utcnow
 from ..db import get_db
 from ..models import Task, User
 
@@ -79,7 +80,7 @@ def morning_state(
         .order_by(Task.created_at.desc())
         .all()
     )
-    threshold = datetime.utcnow() - timedelta(days=STALE_BACKLOG_DAYS)
+    threshold = utcnow() - timedelta(days=STALE_BACKLOG_DAYS)
     stale_backlog = [t for t in backlog if t.created_at and t.created_at < threshold]
     backlog_top = backlog[:10]
 
@@ -105,7 +106,7 @@ def complete(
     db: Session = Depends(get_db),
 ):
     today = payload.today_date
-    now = datetime.utcnow()
+    now = utcnow()
 
     # 1. Yesterday actions — carry prunes done subtasks and bumps carried_count.
     for ca in payload.yesterday_actions:

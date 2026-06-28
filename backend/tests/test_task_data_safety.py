@@ -5,6 +5,7 @@ from fastapi import HTTPException
 from pydantic import ValidationError
 
 from app.auth import hash_password
+from app.clock import utcnow
 from app.models import Session as FocusSession, Task, User
 from app.routers import sessions as sessions_router
 from app.routers import tasks as tasks_router
@@ -17,7 +18,7 @@ def _make_user(db_session, username="owner") -> User:
         username=username,
         password_hash=hash_password("password-123"),
         is_admin=True,
-        approved_at=datetime.utcnow(),
+        approved_at=utcnow(),
     )
     db_session.add(user)
     db_session.commit()
@@ -56,7 +57,7 @@ def test_soft_deleted_tasks_are_hidden_from_day_cap(db_session):
             user_id=user.id,
             title="deleted",
             day_date=target_day,
-            deleted_at=datetime.utcnow(),
+            deleted_at=utcnow(),
         )
     )
     db_session.commit()
@@ -77,7 +78,7 @@ def test_day_cap_raises_with_five_visible_tasks_even_alongside_deletes(db_sessio
             user_id=user.id,
             title="deleted",
             day_date=target_day,
-            deleted_at=datetime.utcnow(),
+            deleted_at=utcnow(),
         )
     )
     db_session.commit()
@@ -137,9 +138,9 @@ def test_morning_stale_drop_marks_deleted_instead_of_hard_delete():
         user_id=1,
         title="stale",
         day_date=None,
-        created_at=datetime.utcnow() - timedelta(days=45),
+        created_at=utcnow() - timedelta(days=45),
     )
-    user = User(id=1, username="owner", password_hash="x", approved_at=datetime.utcnow())
+    user = User(id=1, username="owner", password_hash="x", approved_at=utcnow())
     db = FakeMorningDb([stale])
 
     complete(
@@ -201,7 +202,7 @@ def test_session_summary_excludes_deleted_task_time(db_session):
         user_id=user.id,
         title="deleted-frog",
         is_frog=True,
-        deleted_at=datetime.utcnow(),
+        deleted_at=utcnow(),
     )
     db_session.add_all([live, gone])
     db_session.commit()

@@ -1,5 +1,5 @@
 import pyotp
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -14,6 +14,7 @@ from ..auth import (
     verify_user_password,
     verify_user_totp,
 )
+from ..clock import utcnow
 from ..config import settings
 from ..db import get_db
 from ..models import User
@@ -25,13 +26,42 @@ from ..schemas import (
     TotpConfirmRequest,
     TotpDisableRequest,
 )
-from datetime import datetime
+from datetime import datetime, timedelta
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 # Pending TOTP secrets keyed by user.id; lives only in this process.
 # Cleared on confirm or app restart. Single-replica SQLite deploy = fine.
 _PENDING_TOTP: dict[int, str] = {}
+
+# Open-registration abuse controls (in-process, single-replica — same model as
+# _PENDING_TOTP). A per-IP fixed window slows automated flooding; a global cap
+# bounds how many unapproved rows can pile up in the users table at once.
+_REGISTER_ATTEMPTS: dict[str, list[datetime]] = {}
+_REGISTER_WINDOW = timedelta(hours=1)
+_REGISTER_MAX_PER_WINDOW = 5
+_MAX_PENDING_ACCOUNTS = 25
+
+
+def _client_key(request: Request) -> str:
+    """Identify the caller for rate limiting. Behind nginx, X-Real-IP carries
+    the real client IP (Cloudflare-restored upstream); fall back to the socket
+    peer for direct/local connections."""
+    return request.headers.get("x-real-ip") or (
+        request.client.host if request.client else "unknown"
+    )
+
+
+def _register_rate_limited(key: str, now: datetime) -> bool:
+    """Fixed-window per-IP limiter. Prunes expired hits on access and records
+    this attempt when under the cap."""
+    hits = [t for t in _REGISTER_ATTEMPTS.get(key, []) if now - t < _REGISTER_WINDOW]
+    if len(hits) >= _REGISTER_MAX_PER_WINDOW:
+        _REGISTER_ATTEMPTS[key] = hits
+        return True
+    hits.append(now)
+    _REGISTER_ATTEMPTS[key] = hits
+    return False
 
 _COOKIE_KW = dict(
     httponly=True,
@@ -61,7 +91,7 @@ def setup(payload: SetupRequest, response: Response, db: Session = Depends(get_d
         username=payload.username,
         password_hash=hash_password(payload.password),
         is_admin=True,
-        approved_at=datetime.utcnow(),
+        approved_at=utcnow(),
     )
     db.add(user)
     try:
@@ -75,15 +105,35 @@ def setup(payload: SetupRequest, response: Response, db: Session = Depends(get_d
 
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
-async def register(payload: RegisterRequest, db: Session = Depends(get_db)):
+async def register(
+    payload: RegisterRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+):
     """Open registration. Account is created in pending state and cannot
     sign in until an admin approves it. Refused on a fresh install — the
     very first account must come through /setup so there's an admin to
     approve subsequent registrations."""
+    now = utcnow()
+    if _register_rate_limited(_client_key(request), now):
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            "Too many registration attempts. Try again later.",
+        )
     if db.query(User).count() == 0:
         raise HTTPException(
             status.HTTP_409_CONFLICT,
             "First account must be created through setup.",
+        )
+    pending = (
+        db.query(User)
+        .filter(User.approved_at.is_(None), User.disabled_at.is_(None))
+        .count()
+    )
+    if pending >= _MAX_PENDING_ACCOUNTS:
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            "Too many pending registrations awaiting approval. Try again later.",
         )
     user = User(
         username=payload.username,
@@ -145,7 +195,7 @@ def mark_welcomed(
 ):
     """Stamp the current user as having seen the welcome tour.
     Idempotent: calling again just refreshes the timestamp."""
-    user.welcomed_at = datetime.utcnow()
+    user.welcomed_at = utcnow()
     db.commit()
 
 

@@ -1,6 +1,6 @@
 <script>
   import '../app.css';
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import { auth, captures } from '$lib/api.js';
@@ -25,10 +25,14 @@
     }
     window.addEventListener('keydown', onKey);
     window.addEventListener('click', onWindowClick);
-    return () => {
-      window.removeEventListener('keydown', onKey);
-      window.removeEventListener('click', onWindowClick);
-    };
+  });
+
+  onDestroy(() => {
+    // onDestroy is the one lifecycle hook that also runs during SSR, where
+    // `window` is undefined — guard so server render doesn't throw.
+    if (typeof window === 'undefined') return;
+    window.removeEventListener('keydown', onKey);
+    window.removeEventListener('click', onWindowClick);
   });
 
   function onKey(e) {

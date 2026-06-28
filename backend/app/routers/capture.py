@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from ..auth import current_user
+from ..clock import utcnow
 from ..config import AIProviderUnavailable
 from ..db import get_db
 from ..llm import first_action, subtasks_from_task, weekly_review
@@ -190,13 +191,19 @@ async def weekly_review_endpoint(
         .filter(FocusSession.user_id == user.id, FocusSession.started_at >= week_start)
         .all()
     )
+    session_task_ids = {s.task_id for s in sessions}
+    task_by_id = (
+        {t.id: t for t in db.query(Task).filter(Task.id.in_(session_task_ids)).all()}
+        if session_task_ids
+        else {}
+    )
     total_seconds = 0
     frog_seconds = 0
     for s in sessions:
-        t = db.get(Task, s.task_id)
+        t = task_by_id.get(s.task_id)
         if not t or t.deleted_at is not None:
             continue
-        session_end = s.ended_at or datetime.utcnow()
+        session_end = s.ended_at or utcnow()
         secs = int((session_end - s.started_at).total_seconds())
         total_seconds += secs
         if t.is_frog:
@@ -243,6 +250,10 @@ async def weekly_review_endpoint(
     if not summary or not summary.strip() or "## " not in summary:
         raise HTTPException(503, "AI returned an unusable summary. Try again.")
 
-    now = datetime.utcnow()
+    now = utcnow()
+    # Only the latest day per user is ever read; drop this user's stale entries
+    # so the cache stays bounded to one entry per user instead of growing forever.
+    for key in [k for k in _WEEKLY_CACHE if k[0] == user.id]:
+        del _WEEKLY_CACHE[key]
     _WEEKLY_CACHE[cache_key] = (summary, now)
     return WeeklyReviewResponse(summary=summary, generated_at=now)

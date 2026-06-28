@@ -149,7 +149,7 @@
               <div class="text-sm">
                 <span class="font-mono text-ink-100">{u.username}</span>
                 <span class="text-ink-600 text-xs ml-2">
-                  requested {u.created_at ? new Date(u.created_at).toLocaleString() : ''}
+                  requested {u.created_at ? new Date(u.created_at + 'Z').toLocaleString() : ''}
                 </span>
               </div>
               <button class="btn-primary text-xs" on:click={() => approve(u)}>approve</button>

@@ -1,10 +1,11 @@
 from copy import deepcopy
-from datetime import date as Date, datetime
+from datetime import date as Date
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from ..auth import current_user
+from ..clock import utcnow
 from ..db import get_db
 from ..models import Task, User
 from ..schemas import TaskCreate, TaskOut, TaskUpdate
@@ -39,11 +40,12 @@ def _enforce_day_caps(
 
 @router.get("", response_model=list[TaskOut])
 def list_tasks(
-    day: Date | None = None,
+    day: Date,
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    day = day or Date.today()
+    # `day` is required and always browser-local (sent by api.js localToday());
+    # never fall back to the server's UTC today — it diverges across midnight.
     rows = (
         _visible_tasks(db.query(Task))
         .filter(Task.user_id == user.id, Task.day_date == day)
@@ -160,7 +162,7 @@ def update_task(
             setattr(task, field, data[field])
 
     if data.get("status") == "done" and task.completed_at is None:
-        task.completed_at = datetime.utcnow()
+        task.completed_at = utcnow()
     if data.get("status") and data["status"] != "done":
         task.completed_at = None
 
@@ -178,7 +180,7 @@ def delete_task(
     task = _visible_tasks(db.query(Task)).filter(Task.id == task_id, Task.user_id == user.id).first()
     if not task:
         raise HTTPException(404, "Not found")
-    task.deleted_at = datetime.utcnow()
+    task.deleted_at = utcnow()
     db.commit()
 
 
@@ -231,7 +233,7 @@ def append_dictation(
     if not task:
         raise HTTPException(404, "Not found")
 
-    stamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
+    stamp = utcnow().strftime("%Y-%m-%d %H:%M UTC")
     block = f"\n\n---\n🎙 dictation · {stamp}\n\n{payload.outline.strip()}\n"
     task.notes = (task.notes or "").rstrip() + block
     db.commit()

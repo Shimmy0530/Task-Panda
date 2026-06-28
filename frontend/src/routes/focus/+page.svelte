@@ -17,6 +17,7 @@
   let showContext = false;
   let subErr = '';
   let breakPrompt = false; // shown after the session has been ended
+  let wakeLock = null;
 
   // ADHD: variable reward — pick a different end tone each session
   const tones = [528, 432, 396, 639, 741];
@@ -41,7 +42,7 @@
       await document.documentElement.requestFullscreen?.();
     } catch {}
     try {
-      if ('wakeLock' in navigator) await navigator.wakeLock.request('screen');
+      if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen');
     } catch {}
 
     document.body.classList.add('focus-mode');
@@ -51,6 +52,7 @@
   onDestroy(() => {
     if (timer) clearInterval(timer);
     document.body.classList.remove('focus-mode');
+    try { wakeLock?.release(); } catch {}
   });
 
   function tick() {
