@@ -215,7 +215,7 @@
 
   <!-- Frog -->
   <section>
-    <p class="label mb-3">🐸 frog — eat first</p>
+    <p class="label mb-3">🐸 frog — do first</p>
     {#if frog}
       <div class="surface rounded-lg p-5 border-frog/40 frog-pulse" class:!border-moss={frog.status === 'done'}>
         <div class="flex items-start gap-3">

@@ -276,7 +276,7 @@
       </h2>
       <p class="text-ink-400 text-sm mb-8 leading-relaxed">
         Up to two other independent things to get done today.
-        Each is its own task with its own pomodoro — not a step inside the frog.
+        Each is its own task with its own timer — not a step inside the frog.
         Leave blank if there's nothing real.
       </p>
 
@@ -416,7 +416,7 @@
         <p class="font-display text-4xl text-ink-100 tracking-tightest leading-none mb-4">
           set.
         </p>
-        <p class="text-ink-500 text-sm font-mono">eat the frog first.</p>
+        <p class="text-ink-500 text-sm font-mono">do the hard one first.</p>
       </div>
     {/if}
 
