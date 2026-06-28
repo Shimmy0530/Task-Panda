@@ -132,7 +132,7 @@ For backend-only changes, append `backend` to the compose command to skip the sl
 | `/morning` | Guided ritual: handle yesterday's open work, name the boring important one, pick up to two more, optionally pull from backlog, hygiene-prompt 30+ day stale items |
 | `/plan` | Today's tasks (max 5, exactly one boring important one). Inline subtasks (manual + AI breakdown), S/M/L effort chip, copy-task, footer link to backlog |
 | `/backlog` | Things that aren't for today (`day_date IS NULL`). Doesn't count against the day cap. `→ today` graduates a row (subject to cap) |
-| `/focus?session=…&task=…` | Fullscreen pomodoro with wake-lock + context overlay; subtask checklist ticks live |
+| `/focus?session=…&task=…` | Fullscreen focus timer with wake-lock + context overlay; subtask checklist ticks live |
 | `/dictate?task=<id>` | Record → Groq Whisper → LLM outline → save to task |
 | `/capture` | Inbox of intrusive thoughts (`⌘.` from anywhere) |
 | `/review` | Daily + 7-day ratio + AI weekly summary (cached server-side per day) |
