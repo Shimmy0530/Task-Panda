@@ -44,5 +44,7 @@ Caddyfile.local
 
 # Brand source files — exported variants live in frontend/static/
 brand/
-.claude/skills/.skip
 .claude/skills/
+
+# Provenance log — private, not for public repo
+PROVENANCE.md

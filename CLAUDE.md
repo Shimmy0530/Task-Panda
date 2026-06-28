@@ -62,7 +62,7 @@ Commits use DCO sign-off (`git commit -s`) — required by CONTRIBUTING.md, and 
 
 ### Dependabot
 
-List open alerts: `gh api repos/Shimmy0530/Task-Panda/dependabot/alerts --jq '[.[]|select(.state=="open")|{number,severity:.security_advisory.severity,package:.dependency.package.name,patched:.security_vulnerability.first_patched_version.identifier}]'`. Frontend dep alerts (vite/esbuild/etc.) are almost always dev/build-toolchain only — no production exposure, since the app ships via `node build` (adapter-node), not a Vite runtime. Fix by bumping, verify with `cd frontend && npm run build`, then squash-merge; alerts auto-close on the next scan.
+List open alerts: `gh api --paginate repos/Shimmy0530/Task-Panda/dependabot/alerts --jq '[.[]|select(.state=="open")|{number,severity:.security_advisory.severity,package:.dependency.package.name,patched:.security_vulnerability.first_patched_version.identifier}]'`. Frontend dep alerts (vite/esbuild/etc.) are almost always dev/build-toolchain only — no production exposure, since the app ships via `node build` (adapter-node), not a Vite runtime. Fix by bumping, verify with `cd frontend && npm run build`, then squash-merge; alerts auto-close on the next scan.
 
 ## Local dev
 
