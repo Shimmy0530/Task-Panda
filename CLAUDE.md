@@ -60,6 +60,10 @@ Default to `gh pr merge <N> --squash --delete-branch`. Squash keeps `main`'s log
 
 Commits use DCO sign-off (`git commit -s`) — required by CONTRIBUTING.md, and applies to AI-assisted commits too. Per-repo `user.email` is set to a GitHub no-reply address so the maintainer's real email stays out of public history; don't override it.
 
+### Dependabot
+
+List open alerts: `gh api repos/Shimmy0530/Task-Panda/dependabot/alerts --jq '[.[]|select(.state=="open")|{number,severity:.security_advisory.severity,package:.dependency.package.name,patched:.security_vulnerability.first_patched_version.identifier}]'`. Frontend dep alerts (vite/esbuild/etc.) are almost always dev/build-toolchain only — no production exposure, since the app ships via `node build` (adapter-node), not a Vite runtime. Fix by bumping, verify with `cd frontend && npm run build`, then squash-merge; alerts auto-close on the next scan.
+
 ## Local dev
 
 ```bash
