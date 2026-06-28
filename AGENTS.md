@@ -4,6 +4,8 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 
 ## Repo shape
 
+**`CLAUDE.md` and `AGENTS.md` are near-identical mirrors** (this file is the public/tool-agnostic subset). When editing shared content — architecture notes, routing layout, conventions, the Dependabot section — apply the same change to **both** files or they silently drift.
+
 The repository is the SvelteKit + FastAPI app, single-user and self-hosted, with deployment artifacts in-tree:
 
 - `backend/`, `frontend/` — the app
